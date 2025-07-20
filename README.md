@@ -18,6 +18,7 @@ Ashare-LLM-Analyst 是一个A股市场的技术分析工具，通过[Ashare](htt
 - 📝 **日志系统优化**：实现了统一的彩色日志系统和文件日志轮转
 - 🔧 **代码质量提升**：添加类型提示、文档字符串和完善的异常处理
 - 🎯 **功能扩展**：增加了交易信号生成、推送通知等高级功能
+- 🌐 **Web界面**：添加了Streamlit Web应用界面
 
 ## 在线预览
 
@@ -30,6 +31,7 @@ Ashare-LLM-Analyst 是一个A股市场的技术分析工具，通过[Ashare](htt
 - 生成详细的技术分析图表
 - 使用Deepseek大语言模型提供专业的投资分析和建议
 - 输出美观的HTML格式分析报告
+- 🌐 **Web界面**：现代化的Streamlit Web应用
 
 ## 使用方法
 
@@ -37,15 +39,17 @@ Ashare-LLM-Analyst 是一个A股市场的技术分析工具，通过[Ashare](htt
 
 1. 确保安装了所有必需的依赖项:
 ```bash
-pip install pandas numpy matplotlib pytz
+pip install -r requirements.txt
 ```
 
-2. 配置大语言模型API信息（两种方式）： 方式一：使用环境变量（推荐）
+2. 配置大语言模型API信息（两种方式）：
+
+**方式一：使用环境变量（推荐）**
 ```bash
 # Linux/Mac
 export LLM_API_KEY="your_api_key_here"
-export LLM_BASE_URL="https://api.deepseek.com"  # 或其他LLM服务提供商的API地址
-export LLM_MODEL="deepseek-chat"  # 使用的模型名称
+export LLM_BASE_URL="https://api.deepseek.com"
+export LLM_MODEL="deepseek-chat"
 
 # Windows (命令提示符)
 set LLM_API_KEY=your_api_key_here
@@ -57,38 +61,103 @@ $env:LLM_API_KEY="your_api_key_here"
 $env:LLM_BASE_URL="https://api.deepseek.com"
 $env:LLM_MODEL="deepseek-chat"
 ```
-方式二：直接在代码中设置
-```python
-analyzer = StockAnalyzer(
-    stock_info, 
-    llm_api_key="your_api_key_here",
-    llm_base_url="https://api.deepseek.com",
-    llm_model="deepseek-chat"
-)
+
+**方式二：使用.env文件**
+```bash
+cp env.example .env
+# 编辑.env文件，填入您的API密钥
 ```
 
-### 运行分析
+### 运行方式
 
-1. 在`main.py`中设置要分析的股票代码：
-```python
-stock_info = {
-    '股票名称': '股票代码',  # 例如 '上证指数': 'sh000001'
-}
-```
-
-2. 运行主程序：
+#### 1. 命令行运行
 ```bash
 python main.py
 ```
 
-3. 分析报告将自动生成并保存在`public/index.html`路径下
+#### 2. Web界面运行（推荐）
+```bash
+streamlit run streamlit_app.py
+```
+
+## 🚀 部署指南
+
+### 方案1：Streamlit Cloud（推荐，免费）
+
+1. **准备代码**
+   ```bash
+   git add .
+   git commit -m "Prepare for deployment"
+   git push origin main
+   ```
+
+2. **部署到Streamlit Cloud**
+   - 访问 [share.streamlit.io](https://share.streamlit.io)
+   - 使用GitHub账户登录
+   - 点击"New app"
+   - 选择仓库和主文件：`streamlit_app.py`
+   - 点击"Deploy"
+
+3. **配置环境变量**
+   - 在Streamlit Cloud的App Settings中
+   - 点击"Secrets"标签
+   - 添加所有API密钥和配置
+
+### 方案2：VPS服务器部署
+
+1. **安装依赖**
+   ```bash
+   sudo apt update
+   sudo apt install python3 python3-pip nginx
+   ```
+
+2. **克隆代码并安装依赖**
+   ```bash
+   git clone https://github.com/your-username/Ashare-AI-Strategy-Analyst.git
+   cd Ashare-AI-Strategy-Analyst
+   pip3 install -r requirements.txt
+   ```
+
+3. **配置环境变量**
+   ```bash
+   cp env.example .env
+   nano .env  # 编辑并填入真实的API密钥
+   ```
+
+4. **运行应用**
+   ```bash
+   streamlit run streamlit_app.py --server.port=8501 --server.address=0.0.0.0
+   ```
+
+### 方案3：Docker部署
+
+```bash
+# 构建镜像
+docker build -t stock-analyzer .
+
+# 运行容器
+docker run -d \
+  --name stock-analyzer \
+  -p 8501:8501 \
+  -e LLM_API_KEY="your-api-key" \
+  -e LLM_BASE_URL="https://api.deepseek.com" \
+  -e LLM_MODEL="deepseek-chat" \
+  stock-analyzer
+```
+
+## 🔐 安全注意事项
+
+- **API密钥安全**：永远不要将API密钥提交到GitHub
+- **环境变量**：使用环境变量或部署平台的Secrets功能存储敏感信息
+- **文件权限**：确保.env文件有正确的权限设置（600）
 
 ## 技术架构
 
 - 数据获取：使用Ashare模块获取A股历史数据
 - 技术分析：使用MyTT库进行技术指标计算
-- 图表生成：使用Matplotlib生成技术分析图表
+- 图表生成：使用Plotly生成交互式技术分析图表
 - AI分析：通过Deepseek API获取专业的投资建议
+- Web界面：使用Streamlit构建现代化Web应用
 - 报告生成：生成包含详细分析的HTML报告
 
 ## 输出示例
@@ -102,7 +171,7 @@ python main.py
 
 ## 重要说明
 
-- **安全提示**：该项目是由个人自用的私有仓库公开而来，API凭据的存储并未做特别的安全防范措施。请务必妥善保管你的API密钥，建议使用环境变量或配置文件来存储敏感信息。
+- **安全提示**：请务必妥善保管你的API密钥，建议使用环境变量或配置文件来存储敏感信息。
 
 - **输出位置**：分析结果会输出到根目录下的`public`文件夹中。如果文件夹不存在，程序会自动创建。
 
