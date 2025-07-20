@@ -177,4 +177,35 @@ class DataFetcher:
         logger.info("建议检查:")
         logger.info("  1. 股票代码格式是否正确")
         logger.info("  2. 网络连接是否正常")
-        logger.info("  3. 股票是否已停牌或退市") 
+        logger.info("  3. 股票是否已停牌或退市")
+    
+    def fetch_multi_timeframe_data(self, code: str, count: Optional[int] = None) -> Dict[str, pd.DataFrame]:
+        """
+        获取多个时间框架的股票数据
+        
+        Args:
+            code: 股票代码  
+            count: 获取的数据条数
+            
+        Returns:
+            包含不同时间框架数据的字典
+        """
+        timeframes = {
+            '日线': '1d',
+            '周线': '1w', 
+            '月线': '1M'
+        }
+        
+        results = {}
+        for name, freq in timeframes.items():
+            try:
+                df = self.fetch_stock_data(code, count, freq)
+                if df is not None:
+                    results[name] = df
+                    logger.info(f"{code} {name}数据获取成功，共{len(df)}条记录")
+                else:
+                    logger.warning(f"{code} {name}数据获取失败")
+            except Exception as e:
+                logger.error(f"获取{code} {name}数据失败: {str(e)}")
+                
+        return results 

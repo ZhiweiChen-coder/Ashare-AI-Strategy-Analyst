@@ -96,7 +96,174 @@ def KDJ(CLOSE,HIGH,LOW, N=9,M1=3,M2=3):         # KDJ指标
 
 def RSI(CLOSE, N=24):      
     DIF = CLOSE-REF(CLOSE,1) 
-    return RD(SMA(MAX(DIF,0), N) / SMA(ABS(DIF), N) * 100)  
+    return RD(SMA(MAX(DIF,0), N) / SMA(ABS(DIF), N) * 100)
+
+def OBV(CLOSE, VOLUME):                     # 能量潮指标
+    """On-Balance Volume 能量潮指标"""
+    obv = np.zeros_like(CLOSE, dtype=float)
+    obv[0] = VOLUME[0]
+    
+    for i in range(1, len(CLOSE)):
+        if CLOSE[i] > CLOSE[i-1]:      # 价格上涨
+            obv[i] = obv[i-1] + VOLUME[i]
+        elif CLOSE[i] < CLOSE[i-1]:    # 价格下跌
+            obv[i] = obv[i-1] - VOLUME[i]
+        else:                          # 价格不变
+            obv[i] = obv[i-1]
+    
+    return RD(obv)
+
+def ADL(HIGH, LOW, CLOSE, VOLUME):          # 累积/派发线
+    """Accumulation/Distribution Line 累积/派发线"""
+    adl = np.zeros_like(CLOSE, dtype=float)
+    
+    for i in range(len(CLOSE)):
+        if HIGH[i] != LOW[i]:  # 避免除零
+            mfm = ((CLOSE[i] - LOW[i]) - (HIGH[i] - CLOSE[i])) / (HIGH[i] - LOW[i])
+            mfv = mfm * VOLUME[i]
+            adl[i] = adl[i-1] + mfv if i > 0 else mfv
+        else:
+            adl[i] = adl[i-1] if i > 0 else 0
+    
+    return RD(adl)
+
+def CMF(HIGH, LOW, CLOSE, VOLUME, N=20):    # 蔡金资金流量指标
+    """Chaikin Money Flow 蔡金资金流量指标"""
+    mfm = np.zeros_like(CLOSE, dtype=float)
+    
+    for i in range(len(CLOSE)):
+        if HIGH[i] != LOW[i]:  # 避免除零
+            mfm[i] = ((CLOSE[i] - LOW[i]) - (HIGH[i] - CLOSE[i])) / (HIGH[i] - LOW[i])
+    
+    mfv = mfm * VOLUME
+    cmf = SUM(mfv, N) / SUM(VOLUME, N)
+    
+    return RD(cmf)
+
+def TRIX(CLOSE, N=14, M=9):                 # 三重指数平滑平均线
+    """TRIX三重指数平滑平均线指标"""
+    tr1 = EMA(CLOSE, N)
+    tr2 = EMA(tr1, N)  
+    tr3 = EMA(tr2, N)
+    trix = (tr3 - REF(tr3, 1)) / REF(tr3, 1) * 100
+    trma = MA(trix, M)
+    return RD(trix), RD(trma)
+
+def DMA(CLOSE, N1=10, N2=50, M=10):         # 平行线差指标
+    """DMA平行线差指标"""
+    dif = MA(CLOSE, N1) - MA(CLOSE, N2)
+    difma = MA(dif, M)
+    return RD(dif), RD(difma)
+
+# WR函数在后面已定义，删除重复
+
+def CCI(CLOSE, HIGH, LOW, N=14):            # 顺势指标
+    """Commodity Channel Index 顺势指标"""
+    tp = (HIGH + LOW + CLOSE) / 3
+    ma_tp = MA(tp, N)
+    md = pd.Series(tp).rolling(N).apply(lambda x: np.mean(np.abs(x - x.mean()))).values
+    cci = (tp - ma_tp) / (0.015 * md)
+    return RD(cci)
+
+def PSY(CLOSE, N=12, M=6):                  # 心理线
+    """心理线指标"""
+    psy = COUNT(CLOSE > REF(CLOSE, 1), N) / N * 100
+    psyma = MA(psy, M)
+    return RD(psy), RD(psyma)
+
+def BIAS(CLOSE, N1=6, N2=12, N3=24):        # 乖离率
+    """乖离率指标"""
+    bias1 = (CLOSE - MA(CLOSE, N1)) / MA(CLOSE, N1) * 100
+    bias2 = (CLOSE - MA(CLOSE, N2)) / MA(CLOSE, N2) * 100  
+    bias3 = (CLOSE - MA(CLOSE, N3)) / MA(CLOSE, N3) * 100
+    return RD(bias1), RD(bias2), RD(bias3)
+
+def DMI(CLOSE, HIGH, LOW, N=14, M=6):       # 动向指标
+    """方向性运动指标"""
+    hd = HIGH - REF(HIGH, 1)
+    ld = REF(LOW, 1) - LOW
+    dmp = IF(hd > 0 & hd > ld, hd, 0)  
+    dmm = IF(ld > 0 & ld > hd, ld, 0)
+    
+    tr1 = HIGH - LOW
+    tr2 = ABS(HIGH - REF(CLOSE, 1))
+    tr3 = ABS(REF(CLOSE, 1) - LOW) 
+    tr = MAX(MAX(tr1, tr2), tr3)
+    
+    trsum = SMA(tr, N)
+    dmpsum = SMA(dmp, N)
+    dmmsum = SMA(dmm, N)
+    
+    pdi = dmpsum / trsum * 100
+    mdi = dmmsum / trsum * 100
+    dx = ABS(mdi - pdi) / (mdi + pdi) * 100
+    adx = SMA(dx, M)
+    adxr = (adx + REF(adx, M)) / 2
+    
+    return RD(pdi), RD(mdi), RD(adx), RD(adxr)
+
+def VR(CLOSE, VOLUME, N=26):                # 成交量比率
+    """Volume Ratio 成交量比率"""
+    lc = REF(CLOSE, 1)
+    up_vol = SUM(IF(CLOSE > lc, VOLUME, 0), N)
+    down_vol = SUM(IF(CLOSE < lc, VOLUME, 0), N)
+    eq_vol = SUM(IF(CLOSE == lc, VOLUME, 0), N)
+    
+    vr = (up_vol + eq_vol/2) / (down_vol + eq_vol/2) * 100
+    return RD(vr)
+
+def BRAR(OPEN, CLOSE, HIGH, LOW, N=26):     # 人气意愿指标
+    """人气意愿指标"""
+    ar = SUM(HIGH - OPEN, N) / SUM(OPEN - LOW, N) * 100
+    br = SUM(MAX(0, HIGH - REF(CLOSE, 1)), N) / SUM(MAX(0, REF(CLOSE, 1) - LOW), N) * 100
+    return RD(ar), RD(br)
+
+def EMV(HIGH, LOW, VOLUME, N=14, M=9):      # 简易波动指标
+    """Ease of Movement 简易波动指标"""
+    mid = (HIGH + LOW) / 2
+    diff = mid - REF(mid, 1)
+    
+    # 避免除零
+    vol_ratio = np.where(HIGH - LOW != 0, VOLUME / (HIGH - LOW), 0)
+    emv = diff / vol_ratio * 100000000
+    maemv = MA(emv, M)
+    
+    return RD(emv), RD(maemv)
+
+def ROC(CLOSE, N=12, M=6):                  # 变动率
+    """Rate of Change 变动率"""
+    roc = (CLOSE - REF(CLOSE, N)) / REF(CLOSE, N) * 100
+    maroc = MA(roc, M)
+    return RD(roc), RD(maroc)
+
+def MTM(CLOSE, N=12, M=6):                  # 动量指标
+    """Momentum 动量指标"""
+    mtm = CLOSE - REF(CLOSE, N)
+    mtmma = MA(mtm, M)
+    return RD(mtm), RD(mtmma)
+
+def DPO(CLOSE, N=20, M=10, K=6):            # 区间振荡指标
+    """Detrended Price Oscillator 区间振荡指标"""
+    dpo = CLOSE - REF(MA(CLOSE, N), K)
+    madpo = MA(dpo, M)
+    return RD(dpo), RD(madpo)
+
+def ATR(CLOSE, HIGH, LOW, N=14):            # 真实波动幅度
+    """Average True Range 真实波动幅度"""
+    tr1 = HIGH - LOW
+    tr2 = ABS(HIGH - REF(CLOSE, 1))
+    tr3 = ABS(REF(CLOSE, 1) - LOW)
+    tr = MAX(MAX(tr1, tr2), tr3)
+    atr = MA(tr, N)
+    return RD(atr)
+
+def BOLL(CLOSE, N=20, P=2):                 # 布林线
+    """Bollinger Bands 布林线"""
+    mid = MA(CLOSE, N)
+    tmp = STD(CLOSE, N)
+    upper = mid + P * tmp
+    lower = mid - P * tmp
+    return RD(upper), RD(mid), RD(lower)  
 
 def WR(CLOSE, HIGH, LOW, N=10, N1=6):            #W&R 威廉指标
     WR = (HHV(HIGH, N) - CLOSE) / (HHV(HIGH, N) - LLV(LOW, N)) * 100

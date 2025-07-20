@@ -86,13 +86,13 @@ def main():
 
         # 构建用于策略分析的数据
         print("📊 计算技术指标...")
-        stock_data_dict = {}
-        for name, code in stock_pool.items():
-            if code not in analyzer.data:
-                continue
-            df_ind = analyzer.calculate_indicators(code)
-            if df_ind is not None:
-                stock_data_dict[code] = df_ind
+        # 计算所有股票的技术指标
+        if not analyzer.calculate_indicators():
+            print("❌ 技术指标计算失败，终止分析")
+            logger.error("技术指标计算失败，终止分析")
+            return 1
+        
+        stock_data_dict = analyzer.processed_data_dict
 
         if not stock_data_dict:
             print("❌ 没有有效的股票数据进行策略分析")

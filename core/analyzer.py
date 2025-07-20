@@ -49,18 +49,31 @@ class StockAnalyzer:
         # 加载配置
         self.config = config or Config()
         
-        # 基本配置
-        self.stock_codes = list(stock_info.values())
-        self.stock_names = stock_info
-        self.count = count or self.config.data_count
-        self.data = {}
-        self.analysis_results = {}
-        self.enable_push = enable_push and self.config.enable_push
+        # 股票池信息
+        self.stock_names = stock_info if stock_info else self._get_default_stock_pool()
+        self.stock_codes = list(self.stock_names.values())
+        self.count = count
         
+        # 数据存储
+        self.data_dict = {}
+        self.processed_data_dict = {}
+        
+        # 配置相关
+        self.enable_push = enable_push
+
         # 初始化子组件
         self.data_fetcher = DataFetcher(default_count=self.count)
         self.indicators_calculator = TechnicalIndicators()
         self.report_generator = ReportGenerator()
+        
+        # 初始化交互式图表生成器
+        try:
+            from core.plotly_charts import InteractiveCharts
+            self.interactive_charts = InteractiveCharts()
+            logger.info("交互式图表功能已启用")
+        except ImportError as e:
+            logger.warning(f"无法启用交互式图表功能: {str(e)}")
+            self.interactive_charts = None
         
         # 配置matplotlib字体
         self._setup_matplotlib_fonts()
@@ -118,189 +131,205 @@ class StockAnalyzer:
         
         try:
             # 批量获取数据
-            self.data = self.data_fetcher.fetch_multiple_stocks(
-                self.stock_codes, self.count, '1d'
-            )
+            self.data_dict = self.data_fetcher.fetch_multiple_stocks(self.stock_codes, self.count)
             
-            if not self.data:
-                logger.error("没有获取到任何有效的股票数据")
+            success_count = len(self.data_dict)
+            total_count = len(self.stock_codes)
+            
+            logger.info(f"数据获取完成: {success_count}/{total_count} 只股票成功")
+            
+            if success_count == 0:
+                logger.error("所有股票数据获取失败")
                 return False
-            
-            logger.info(f"成功获取 {len(self.data)} 只股票的数据")
-            
-            # 记录数据获取详情
-            for code, df in self.data.items():
-                stock_name = self.get_stock_name(code)
-                logger.info(f"  {stock_name} ({code}): {len(df)} 条记录")
-            
+                
             return True
             
         except Exception as e:
-            logger.error(f"获取股票数据失败: {str(e)}")
+            logger.error(f"批量获取数据失败: {str(e)}")
             return False
 
-    def calculate_indicators(self, code: str) -> Optional[pd.DataFrame]:
+    def calculate_indicators(self) -> bool:
         """
-        计算指定股票的技术指标
+        计算技术指标
         
-        Args:
-            code: 股票代码
-            
         Returns:
-            包含技术指标的DataFrame，失败时返回None
+            是否成功计算指标
         """
-        if code not in self.data:
-            logger.error(f"股票代码 {code} 没有数据")
-            return None
-
+        logger.info("开始计算技术指标...")
+        
         try:
-            logger.info(f"计算股票 {code} 的技术指标...")
+            success_count = 0
+            for code, df in self.data_dict.items():
+                try:
+                    # 计算技术指标
+                    df_with_indicators = self.indicators_calculator.calculate_all_indicators(df)
+                    if df_with_indicators is not None:
+                        self.processed_data_dict[code] = df_with_indicators
+                        success_count += 1
+                        logger.debug(f"股票 {code} 技术指标计算成功")
+                    else:
+                        logger.warning(f"股票 {code} 技术指标计算失败")
+                        
+                except Exception as e:
+                    logger.error(f"股票 {code} 技术指标计算出错: {str(e)}")
             
-            # 验证数据
-            is_valid, error_msg = self.indicators_calculator.validate_data(self.data[code])
-            if not is_valid:
-                logger.error(f"数据验证失败: {error_msg}")
-                return None
-            
-            # 计算技术指标
-            df_with_indicators = self.indicators_calculator.calculate_all_indicators(self.data[code])
-            
-            if df_with_indicators is not None:
-                logger.info(f"股票 {code} 技术指标计算完成")
-            
-            return df_with_indicators
+            logger.info(f"技术指标计算完成: {success_count}/{len(self.data_dict)} 只股票成功")
+            return success_count > 0
             
         except Exception as e:
-            logger.error(f"计算技术指标失败: {str(e)}")
-            return None
+            logger.error(f"技术指标计算失败: {str(e)}")
+            return False
 
-    def generate_analysis_data(self, code: str) -> Dict[str, Any]:
+    def analyze_single_stock(self, code: str) -> Dict[str, Any]:
         """
-        生成股票分析数据
+        分析单只股票
         
         Args:
             code: 股票代码
             
         Returns:
-            分析数据字典
+            分析结果字典
         """
-        stock_name = self.get_stock_name(code)
+        analysis_data = {}
         
-        if code not in self.data:
-            logger.error(f"股票代码 {code} 没有数据，无法生成分析")
-            return self._create_error_analysis(code, stock_name, "数据获取失败")
-
-        df = self.data[code]
-
-        # 检查数据是否为空
-        if df.empty:
-            logger.error(f"股票代码 {code} 数据为空")
-            return self._create_error_analysis(code, stock_name, "数据为空")
-
-        # 计算技术指标
-        latest_df = self.calculate_indicators(code)
-
-        if latest_df is None:
-            logger.error(f"股票代码 {code} 技术指标计算失败")
-            return self._create_error_analysis(code, stock_name, "技术指标计算失败")
-
         try:
-            logger.info(f"生成股票 {code} 的分析数据...")
+            stock_name = self.get_stock_name(code)
+            logger.debug(f"开始分析股票: {stock_name} ({code})")
             
-            # 构建分析数据
-            analysis_data = self._build_analysis_data(code, df, latest_df)
+            # 检查是否有处理后的数据
+            if code not in self.processed_data_dict:
+                analysis_data['数据状态'] = f'数据获取失败'
+                analysis_data['股票名称'] = stock_name
+                analysis_data['股票代码'] = code
+                return analysis_data
+                
+            df = self.processed_data_dict[code]
             
-            # 生成交易信号
-            signals = generate_trading_signals(latest_df)
-            analysis_data["技术分析建议"] = signals
+            # 基础数据分析
+            analysis_data['基础数据'] = self._analyze_basic_data(df, stock_name)
+            analysis_data['股票名称'] = stock_name
+            analysis_data['股票代码'] = code
             
-            logger.info(f"股票 {code} 分析数据生成完成")
+            # 生成技术分析建议
+            analysis_data['技术分析建议'] = generate_trading_signals(df)
+            
+            # 存储处理后的数据供图表生成使用
+            analysis_data['processed_data'] = df
+            
+            logger.debug(f"股票 {stock_name} 分析完成")
+            return analysis_data
+            
+        except Exception as e:
+            logger.error(f"分析股票 {code} 失败: {str(e)}")
+            analysis_data['数据状态'] = f'分析失败: {str(e)}'
             return analysis_data
 
-        except Exception as e:
-            error_msg = f"生成分析数据时出错: {str(e)}"
-            logger.error(error_msg)
-            return self._create_error_analysis(code, stock_name, error_msg)
-
-    def _create_error_analysis(self, code: str, stock_name: str, error: str) -> Dict[str, Any]:
-        """创建错误分析结果"""
-        return {
-            "基础数据": {
-                "股票代码": code,
-                "股票名称": stock_name,
-                "数据状态": error,
-                "错误信息": "请检查股票代码格式是否正确"
-            },
-            "技术指标": {},
-            "技术分析建议": [f"分析失败: {error}"]
-        }
-
-    def _build_analysis_data(self, code: str, df: pd.DataFrame, 
-                           latest_df: pd.DataFrame) -> Dict[str, Any]:
-        """构建分析数据结构"""
-        stock_name = self.get_stock_name(code)
-        
-        # 基础数据
-        basic_data = {
-            "股票代码": code,
-            "股票名称": stock_name,
-            "最新收盘价": f"{df['close'].iloc[-1]:.2f}",
-            "涨跌幅": f"{((df['close'].iloc[-1] - df['close'].iloc[-2]) / df['close'].iloc[-2] * 100):.2f}%",
-            "最高价": f"{df['high'].iloc[-1]:.2f}",
-            "最低价": f"{df['low'].iloc[-1]:.2f}",
-            "成交量": f"{int(df['volume'].iloc[-1]):,}",
-        }
-        
-        # 技术指标数据
-        technical_indicators = {
-            "MA指标": {
-                "MA5": f"{latest_df['MA5'].iloc[-1]:.2f}",
-                "MA10": f"{latest_df['MA10'].iloc[-1]:.2f}",
-                "MA20": f"{latest_df['MA20'].iloc[-1]:.2f}",
-                "MA60": f"{latest_df['MA60'].iloc[-1]:.2f}",
-            },
-            "趋势指标": {
-                "MACD (指数平滑异同移动平均线)": f"{latest_df['MACD'].iloc[-1]:.2f}",
-                "DIF (差离值)": f"{latest_df['DIF'].iloc[-1]:.2f}",
-                "DEA (讯号线)": f"{latest_df['DEA'].iloc[-1]:.2f}",
-                "TRIX (三重指数平滑平均线)": f"{latest_df['TRIX'].iloc[-1]:.2f}",
-                "PDI (上升方向线)": f"{latest_df['PDI'].iloc[-1]:.2f}",
-                "MDI (下降方向线)": f"{latest_df['MDI'].iloc[-1]:.2f}",
-                "ADX (趋向指标)": f"{latest_df['ADX'].iloc[-1]:.2f}",
-            },
-            "摆动指标": {
-                "RSI (相对强弱指标)": f"{latest_df['RSI'].iloc[-1]:.2f}",
-                "KDJ-K (随机指标K值)": f"{latest_df['K'].iloc[-1]:.2f}",
-                "KDJ-D (随机指标D值)": f"{latest_df['D'].iloc[-1]:.2f}",
-                "KDJ-J (随机指标J值)": f"{latest_df['J'].iloc[-1]:.2f}",
-                "BIAS (乖离率)": f"{latest_df['BIAS1'].iloc[-1]:.2f}",
-                "CCI (顺势指标)": f"{latest_df['CCI'].iloc[-1]:.2f}",
-            },
-            "成交量指标": {
-                "VR (成交量比率)": f"{latest_df['VR'].iloc[-1]:.2f}",
-                "AR (人气指标)": f"{latest_df['AR'].iloc[-1]:.2f}",
-                "BR (意愿指标)": f"{latest_df['BR'].iloc[-1]:.2f}",
-            },
-            "动量指标": {
-                "ROC (变动率)": f"{latest_df['ROC'].iloc[-1]:.2f}",
-                "MTM (动量指标)": f"{latest_df['MTM'].iloc[-1]:.2f}",
-                "DPO (区间振荡)": f"{latest_df['DPO'].iloc[-1]:.2f}",
-            },
-            "布林带": {
-                "BOLL上轨": f"{latest_df['BOLL_UP'].iloc[-1]:.2f}",
-                "BOLL中轨": f"{latest_df['BOLL_MID'].iloc[-1]:.2f}",
-                "BOLL下轨": f"{latest_df['BOLL_LOW'].iloc[-1]:.2f}",
+    def _analyze_basic_data(self, df: pd.DataFrame, stock_name: str) -> Dict[str, Any]:
+        """分析股票基础数据"""
+        try:
+            latest_data = df.iloc[-1]
+            previous_data = df.iloc[-2] if len(df) > 1 else latest_data
+            
+            # 基础价格数据
+            current_price = latest_data['close']
+            open_price = latest_data['open']
+            high_price = latest_data['high']
+            low_price = latest_data['low']
+            volume = latest_data['volume']
+            
+            # 涨跌计算
+            prev_close = previous_data['close']
+            change = current_price - prev_close
+            change_pct = (change / prev_close) * 100 if prev_close != 0 else 0
+            
+            # 振幅计算
+            amplitude = ((high_price - low_price) / prev_close) * 100 if prev_close != 0 else 0
+            
+            # 技术指标最新值
+            indicators = self.indicators_calculator.get_latest_indicator_values(df)
+            
+            basic_data = {
+                '股票名称': stock_name,
+                '最新价格': f"{current_price:.2f}",
+                '涨跌': f"{change:+.2f}",
+                '涨跌幅': f"{change_pct:+.2f}%",
+                '开盘价': f"{open_price:.2f}",
+                '最高价': f"{high_price:.2f}",
+                '最低价': f"{low_price:.2f}",
+                '成交量': f"{volume:.0f}",
+                '振幅': f"{amplitude:.2f}%",
+                '数据状态': '正常'
             }
-        }
+            
+            # 添加重要技术指标
+            if 'MA5' in indicators and not pd.isna(indicators['MA5']):
+                basic_data['MA5'] = f"{indicators['MA5']:.2f}"
+            if 'MA20' in indicators and not pd.isna(indicators['MA20']):
+                basic_data['MA20'] = f"{indicators['MA20']:.2f}"
+            if 'RSI' in indicators and not pd.isna(indicators['RSI']):
+                basic_data['RSI'] = f"{indicators['RSI']:.1f}"
+            if 'MACD' in indicators and not pd.isna(indicators['MACD']):
+                basic_data['MACD'] = f"{indicators['MACD']:.4f}"
+            
+            return basic_data
+            
+        except Exception as e:
+            logger.error(f"分析基础数据失败: {str(e)}")
+            return {'数据状态': f'基础数据分析失败: {str(e)}'}
+
+    def generate_pool_ai_analysis(self) -> Optional[str]:
+        """
+        生成股票池的AI综合分析
         
-        return {
-            "基础数据": basic_data,
-            "技术指标": technical_indicators
-        }
+        Returns:
+            AI分析结果文本，失败时返回None
+        """
+        if not self.llm:
+            logger.warning("LLM未配置，跳过AI分析")
+            return None
+            
+        try:
+            logger.info("开始生成股票池AI分析...")
+            
+            # 收集所有股票的基本信息
+            pool_summary = []
+            for code in self.processed_data_dict.keys():
+                df = self.processed_data_dict[code]
+                stock_name = self.get_stock_name(code)
+                
+                latest = df.iloc[-1]
+                prev = df.iloc[-2] if len(df) > 1 else latest
+                
+                change_pct = ((latest['close'] - prev['close']) / prev['close']) * 100
+                
+                pool_summary.append({
+                    'name': stock_name,
+                    'code': code,
+                    'price': latest['close'],
+                    'change_pct': change_pct,
+                    'volume': latest['volume'],
+                    'rsi': latest.get('RSI', 0),
+                    'macd': latest.get('MACD', 0)
+                })
+            
+            # 构造AI分析prompt
+            analysis_text = self.llm.generate_pool_analysis(pool_summary)
+            
+            if analysis_text:
+                logger.info("股票池AI分析生成成功")
+                self.pool_ai_analysis = analysis_text
+                return analysis_text
+            else:
+                logger.warning("股票池AI分析生成失败")
+                return None
+                
+        except Exception as e:
+            logger.error(f"生成股票池AI分析失败: {str(e)}")
+            return None
 
     def generate_html_report(self) -> str:
         """
-        生成HTML格式的分析报告
+        生成HTML分析报告
         
         Returns:
             HTML报告内容
@@ -308,11 +337,37 @@ class StockAnalyzer:
         logger.info("开始生成HTML报告...")
         
         try:
-            # 生成所有股票的分析数据
+            # 分析所有股票
             stock_analyses = []
-            for code in self.stock_codes:
-                analysis_data = self.generate_analysis_data(code)
-                stock_analyses.append((code, analysis_data))
+            for code in self.processed_data_dict.keys():
+                stock_name = self.get_stock_name(code)
+                analysis_data = self.analyze_single_stock(code)
+                stock_analyses.append((stock_name, analysis_data))
+            
+            # 生成AI综合分析
+            ai_analysis = self.generate_pool_ai_analysis()
+            
+            # 为每个股票生成交互式图表
+            if self.interactive_charts:
+                for stock_name, analysis in stock_analyses:
+                    try:
+                        if 'processed_data' in analysis:
+                            df = analysis['processed_data']
+                            # 生成主要分析图表
+                            interactive_chart_html = self.interactive_charts.create_main_analysis_chart(
+                                df, stock_name
+                            )
+                            analysis['interactive_chart'] = interactive_chart_html
+                            
+                            # 生成多时间框架图表
+                            multi_timeframe_chart_html = self._generate_multi_timeframe_chart(stock_name, df)
+                            if multi_timeframe_chart_html:
+                                analysis['multi_timeframe_chart'] = multi_timeframe_chart_html
+                            
+                            logger.info(f"为{stock_name}生成交互式图表成功")
+                    except Exception as e:
+                        logger.warning(f"为{stock_name}生成交互式图表失败: {str(e)}")
+                        analysis['interactive_chart'] = None
             
             # 使用报告生成器生成HTML
             html_content = self.report_generator.generate_report(
@@ -346,12 +401,18 @@ class StockAnalyzer:
                 logger.error("数据获取失败，终止分析")
                 return None
 
-            # 2. 生成报告
-            logger.info("步骤2: 生成HTML报告")
+            # 2. 计算技术指标
+            logger.info("步骤2: 计算技术指标")
+            if not self.calculate_indicators():
+                logger.error("技术指标计算失败，终止分析")
+                return None
+
+            # 3. 生成报告
+            logger.info("步骤3: 生成HTML报告")
             html_report = self.generate_html_report()
 
-            # 3. 保存报告
-            logger.info("步骤3: 保存报告文件")
+            # 4. 保存报告
+            logger.info("步骤4: 保存报告文件")
             success = self._save_report(html_report, output_path)
             
             if success:
@@ -371,7 +432,7 @@ class StockAnalyzer:
         
         Args:
             html_content: HTML内容
-            output_path: 输出路径
+            output_path: 输出文件路径
             
         Returns:
             是否保存成功
@@ -400,15 +461,67 @@ class StockAnalyzer:
         except Exception as e:
             logger.error(f"保存报告文件失败: {str(e)}")
             return False
-
-    def get_analysis_summary(self) -> Dict[str, Any]:
-        """获取分析摘要信息"""
-        summary = {
-            'total_stocks': len(self.stock_codes),
-            'successful_data_fetch': len(self.data),
-            'stocks_with_data': list(self.data.keys()),
-            'failed_stocks': [code for code in self.stock_codes if code not in self.data],
-            'analysis_time': datetime.now(pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S')
-        }
+    
+    def _get_default_stock_pool(self) -> Dict[str, str]:
+        """
+        获取默认的股票池
         
-        return summary 
+        Returns:
+            默认股票池字典
+        """
+        return {
+            '上证指数': 'sh000001',
+            '深证成指': 'sz399001',
+            '创业板指': 'sz399006'
+        }
+    
+    def _generate_multi_timeframe_chart(self, stock_name: str, daily_df: pd.DataFrame) -> Optional[str]:
+        """
+        生成多时间框架对比图表
+        
+        Args:
+            stock_name: 股票名称
+            daily_df: 日线数据DataFrame
+            
+        Returns:
+            多时间框架图表的HTML字符串，失败时返回None
+        """
+        if not self.interactive_charts:
+            return None
+            
+        try:
+            # 获取股票代码
+            stock_code = None
+            for code, name in self.stock_names.items():
+                if name == stock_name:
+                    stock_code = code
+                    break
+            
+            if not stock_code:
+                logger.warning(f"未找到{stock_name}对应的股票代码")
+                return None
+            
+            # 获取多时间框架数据
+            logger.info(f"开始获取{stock_name}的多时间框架数据")
+            multi_data = self.data_fetcher.fetch_multi_timeframe_data(stock_code, 60)  # 获取60个周期
+            
+            if not multi_data:
+                logger.warning(f"未获取到{stock_name}的多时间框架数据")
+                return None
+            
+            # 为每个时间框架计算简单技术指标
+            for timeframe, df in multi_data.items():
+                if len(df) >= 20:  # 至少需要20个数据点计算MA20
+                    df['MA20'] = df['close'].rolling(20).mean()
+            
+            # 生成多时间框架图表
+            chart_html = self.interactive_charts.create_multi_timeframe_chart(
+                multi_data, stock_name
+            )
+            
+            logger.info(f"为{stock_name}生成多时间框架图表成功")
+            return chart_html
+            
+        except Exception as e:
+            logger.warning(f"生成{stock_name}多时间框架图表失败: {str(e)}")
+            return None 

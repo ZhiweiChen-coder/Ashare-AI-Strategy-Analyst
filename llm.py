@@ -500,3 +500,75 @@ class LLMAnalyzer:
             import traceback
             traceback.print_exc()
             return format_analysis_result({})
+    
+    def generate_pool_analysis(self, pool_summary: list) -> Optional[str]:
+        """
+        生成股票池综合分析
+        
+        Args:
+            pool_summary: 股票池汇总信息列表
+            
+        Returns:
+            AI分析文本，失败时返回None
+        """
+        try:
+            print("开始生成股票池AI分析...")
+            
+            # 构建股票池分析的提示词
+            pool_info = "股票池综合分析：\n\n"
+            for stock in pool_summary:
+                pool_info += f"股票名称: {stock['name']}\n"
+                pool_info += f"股票代码: {stock['code']}\n"
+                pool_info += f"最新价格: {stock['price']:.2f}\n"
+                pool_info += f"涨跌幅: {stock['change_pct']:.2f}%\n"
+                pool_info += f"成交量: {stock['volume']}\n"
+                pool_info += f"RSI: {stock['rsi']:.2f}\n"
+                pool_info += f"MACD: {stock['macd']:.2f}\n"
+                pool_info += "-" * 40 + "\n"
+            
+            system_prompt = """你是一个专业的股票投资分析师。请基于提供的股票池信息，进行综合分析并提供投资建议。
+
+请按以下结构回答：
+
+1. **市场整体分析**
+   - 分析当前股票池的整体表现
+   - 识别市场趋势和行业特点
+
+2. **个股亮点分析** 
+   - 挑选表现最好的2-3只股票
+   - 分析其技术指标和投资价值
+
+3. **风险提示**
+   - 识别潜在风险点
+   - 提供风险控制建议
+
+4. **投资建议**
+   - 给出具体的买卖建议
+   - 建议仓位配置比例
+
+请用中文回答，语言专业且易懂。"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": pool_info}
+            ]
+            
+            print("发送股票池分析请求...")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                stream=False
+            )
+            
+            if response.choices and response.choices[0].message:
+                analysis_text = response.choices[0].message.content.strip()
+                print("股票池AI分析生成成功")
+                return analysis_text
+            else:
+                print("股票池AI分析响应为空")
+                return None
+                
+        except Exception as e:
+            print(f"生成股票池AI分析失败: {str(e)}")
+            return None

@@ -135,6 +135,11 @@ class TechnicalIndicators:
             cci = mt.CCI(close, high, low)
             df['CCI'] = cci
             
+            # PSY - 心理线指标
+            psy, psyma = mt.PSY(close)
+            df['PSY'] = psy
+            df['PSYMA'] = psyma
+            
             logger.debug("摆动指标计算完成")
             
         except Exception as e:
@@ -161,6 +166,19 @@ class TechnicalIndicators:
             emv, maemv = mt.EMV(high, low, volume)
             df['EMV'] = emv
             df['MAEMV'] = maemv
+            
+            # 新增成交量指标
+            # OBV - 能量潮指标
+            obv = mt.OBV(close, volume)
+            df['OBV'] = obv
+            
+            # A/D Line - 累积/派发线
+            adl = mt.ADL(high, low, close, volume)
+            df['ADL'] = adl
+            
+            # CMF - 蔡金资金流量指标
+            cmf = mt.CMF(high, low, close, volume)
+            df['CMF'] = cmf
             
             logger.debug("成交量指标计算完成")
             

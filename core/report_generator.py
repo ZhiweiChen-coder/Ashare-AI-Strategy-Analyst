@@ -11,6 +11,7 @@ from typing import List, Tuple, Dict, Any, Optional
 import pytz
 from utils.logger import get_logger
 from utils.helpers import generate_table_row
+from core.plotly_charts import InteractiveCharts
 
 logger = get_logger(__name__)
 
@@ -22,6 +23,7 @@ class ReportGenerator:
         """初始化报告生成器"""
         self.template_path = 'static/templates/report_template.html'
         self.css_path = 'static/css/report.css'
+        self.interactive_charts = InteractiveCharts()
         logger.info("报告生成器已初始化")
     
     def generate_report(self, stock_analyses: List[Tuple[str, Dict[str, Any]]], 
@@ -151,6 +153,20 @@ class ReportGenerator:
         # 生成交易信号HTML
         signals_html = self._generate_signals_html(analysis_data.get('技术分析建议', []))
         
+        # 生成交互式图表HTML
+        interactive_chart_html = ""
+        if 'interactive_chart' in analysis_data and analysis_data['interactive_chart']:
+            interactive_chart_html = f"""
+            <div class="section-divider">
+                <h2>🎯 交互式技术分析图表</h2>
+                <p class="chart-description">支持缩放、平移等交互操作，点击图例可切换显示/隐藏数据系列</p>
+            </div>
+            
+            <div class="interactive-chart-container">
+                {analysis_data['interactive_chart']}
+            </div>
+            """
+        
         # 组合股票完整内容
         stock_content = f"""
         <div class="stock-container">
@@ -169,6 +185,19 @@ class ReportGenerator:
             </div>
             
             {signals_html}
+            
+            {interactive_chart_html}
+            
+            {"" if 'multi_timeframe_chart' not in analysis_data or not analysis_data['multi_timeframe_chart'] else f'''
+            <div class="section-divider">
+                <h2>📊 多时间框架对比</h2>
+                <p class="chart-description">日线、周线、月线多维度分析，帮助判断不同周期的趋势</p>
+            </div>
+            
+            <div class="interactive-chart-container">
+                {analysis_data['multi_timeframe_chart']}
+            </div>
+            '''}
         </div>
         """
         

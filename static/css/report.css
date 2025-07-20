@@ -849,3 +849,64 @@ footer a:hover {
         display: none !important;
     }
 }
+
+/* 交互式图表样式 */
+.interactive-chart-container {
+    margin: 20px 0;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+}
+
+.chart-description {
+    color: #6b7280;
+    font-size: 14px;
+    margin-bottom: 15px;
+    font-style: italic;
+    text-align: center;
+    padding: 10px;
+    background: #f8fafc;
+    border-radius: 6px;
+    border-left: 4px solid #3b82f6;
+}
+
+/* Plotly图表容器优化 */
+.interactive-chart-container .plotly-graph-div {
+    border-radius: 8px;
+    overflow: visible;
+}
+
+/* 图表工具栏样式优化 */
+.interactive-chart-container .modebar {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 确保图表在移动设备上的响应式 */
+@media (max-width: 768px) {
+    .interactive-chart-container {
+        margin: 15px -10px;
+        border-radius: 8px;
+        padding: 15px;
+    }
+    
+    .interactive-chart-container .plotly-graph-div {
+        font-size: 12px;
+    }
+    
+    .chart-description {
+        font-size: 13px;
+        padding: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .interactive-chart-container {
+        margin: 10px -5px;
+        padding: 10px;
+    }
+}
