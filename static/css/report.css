@@ -1,0 +1,851 @@
+:root {
+    /* 现代化配色方案 */
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    
+    /* 基础颜色 */
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --text-primary: #2d3748;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
+    --bg-primary: #f7fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #edf2f7;
+    --border-color: #e2e8f0;
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    
+    /* 状态颜色 */
+    --positive-color: #48bb78;
+    --negative-color: #f56565;
+    --neutral-color: #718096;
+    --warning-color: #ed8936;
+    --info-color: #4299e1;
+    
+    /* 字体 */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    margin: 0;
+    padding: 0;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    background-image: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.1) 0%, transparent 50%);
+}
+
+/* 头部样式 */
+.header {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 3rem 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+}
+
+.header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+}
+
+.header h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 1;
+}
+
+.report-time {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+}
+
+.report-time span {
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* 主要内容区域 */
+main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* AI股票池分析样式 */
+.ai-pool-analysis {
+    background: var(--bg-secondary);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 3rem;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-pool-analysis::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-gradient);
+}
+
+.ai-pool-analysis h2 {
+    color: var(--primary-color);
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 0 2rem 0;
+    text-align: center;
+    position: relative;
+}
+
+.ai-pool-analysis h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: var(--primary-gradient);
+    border-radius: 2px;
+}
+
+.ai-pool-analysis pre {
+    background: var(--bg-tertiary);
+    border-radius: 15px;
+    padding: 2rem;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-x: auto;
+    position: relative;
+}
+
+/* 结构化AI分析容器 */
+.ai-pool-analysis-container {
+    margin-bottom: 3rem;
+}
+
+/* AI分析部分样式 */
+.ai-section {
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.ai-section:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-xl);
+}
+
+.ai-section .section-header {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+}
+
+.ai-section .section-header h3 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.ai-section .section-icon {
+    font-size: 1.5rem;
+    opacity: 0.8;
+}
+
+.ai-section .section-content {
+    padding: 2rem;
+}
+
+.ai-section .analysis-text {
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+/* 个股分析卡片网格 */
+.stock-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.stock-analysis-card {
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.stock-analysis-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.stock-analysis-card .stock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.stock-analysis-card .stock-header h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.stock-analysis-card .stock-score {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.stock-analysis-card .stock-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.stock-analysis-card .detail-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.stock-analysis-card .detail-item .label {
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 80px;
+    font-size: 0.9rem;
+}
+
+.stock-analysis-card .detail-item .value {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.stock-analysis-card .detail-item .value.risk {
+    color: var(--negative-color);
+}
+
+.stock-analysis-card .detail-item .value.opportunity {
+    color: var(--positive-color);
+}
+
+/* 推荐股票列表 */
+.recommendations-container {
+    margin-bottom: 2rem;
+}
+
+.recommendations-container h4 {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+    margin: 0 0 1rem 0;
+    text-align: center;
+}
+
+.recommendations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.recommendation-item {
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.recommendation-item:hover {
+    transform: translateX(5px);
+    box-shadow: var(--shadow-md);
+}
+
+.recommendation-item .rec-rank {
+    background: var(--primary-gradient);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.recommendation-item .rec-content {
+    color: var(--text-secondary);
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+/* 情绪评分显示 */
+.sentiment-display {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.sentiment-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 2rem;
+    border-radius: 25px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    box-shadow: var(--shadow-md);
+}
+
+.sentiment-score.positive {
+    background: linear-gradient(135deg, #48bb78 0%, #68d391 100%);
+    color: white;
+}
+
+.sentiment-score.negative {
+    background: linear-gradient(135deg, #f56565 0%, #fc8181 100%);
+    color: white;
+}
+
+.sentiment-score.neutral {
+    background: linear-gradient(135deg, #718096 0%, #a0aec0 100%);
+    color: white;
+}
+
+.sentiment-score .score-icon {
+    font-size: 1.5rem;
+}
+
+.sentiment-score .score-value {
+    font-size: 1.4rem;
+}
+
+/* 策略详情 */
+.strategy-details {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* 股票容器样式 */
+.stock-container {
+    background: var(--bg-secondary);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 2.5rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.stock-container:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-xl);
+}
+
+.stock-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--secondary-gradient);
+}
+
+.stock-container h2 {
+    color: var(--text-primary);
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 0 2rem 0;
+    text-align: center;
+    position: relative;
+}
+
+.stock-container h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50px;
+    height: 3px;
+    background: var(--secondary-gradient);
+    border-radius: 2px;
+}
+
+/* 分割线样式 */
+.section-divider {
+    margin: 3rem 0 2rem 0;
+    text-align: center;
+    position: relative;
+}
+
+.section-divider h2 {
+    color: var(--text-primary);
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin: 0;
+    display: inline-block;
+    background: var(--bg-secondary);
+    padding: 0 2rem;
+    position: relative;
+    z-index: 2;
+}
+
+.section-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--border-color);
+    z-index: 1;
+}
+
+/* 数据网格 */
+.data-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin: 2rem 0;
+}
+
+/* 指标部分样式 */
+.indicator-section {
+    background: var(--bg-tertiary);
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.indicator-section:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.indicator-section h3 {
+    color: var(--primary-color);
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0 0 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.indicator-section h3::before {
+    content: '📈';
+    font-size: 1.2rem;
+}
+
+/* 数据表格样式 */
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+}
+
+.data-table th {
+    background: var(--primary-gradient);
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 1.2rem 1.5rem;
+    text-align: left;
+    position: relative;
+}
+
+.data-table th:first-child {
+    border-top-left-radius: 12px;
+}
+
+.data-table th:last-child {
+    border-top-right-radius: 12px;
+}
+
+.data-table td {
+    padding: 1.2rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 500;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+}
+
+.data-table tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table tr:nth-child(even) {
+    background: var(--bg-tertiary);
+}
+
+.data-table tr:hover td {
+    background: var(--bg-primary);
+}
+
+/* 信号列表样式 */
+.signal-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.signal-list li {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    border-left: 4px solid var(--primary-color);
+    font-weight: 500;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.signal-list li::before {
+    content: '💡';
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 1.2rem;
+    opacity: 0.3;
+}
+
+.signal-list li:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    border-left-color: var(--secondary-color);
+}
+
+/* 状态颜色 */
+.positive {
+    color: var(--positive-color);
+    font-weight: 600;
+    background: linear-gradient(45deg, var(--positive-color), #68d391);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.negative {
+    color: var(--negative-color);
+    font-weight: 600;
+    background: linear-gradient(45deg, var(--negative-color), #fc8181);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.neutral {
+    color: var(--neutral-color);
+    font-weight: 600;
+}
+
+/* 错误消息样式 */
+.error-message {
+    background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+    border: 1px solid var(--negative-color);
+    border-radius: 15px;
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-primary);
+}
+
+.error-message h3 {
+    color: var(--negative-color);
+    margin: 0 0 1rem 0;
+    font-size: 1.5rem;
+}
+
+.error-message ul {
+    text-align: left;
+    max-width: 500px;
+    margin: 1rem auto;
+}
+
+.error-message li {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+}
+
+/* 页脚样式 */
+footer {
+    text-align: center;
+    color: var(--text-muted);
+    margin: 3rem 0 1rem 0;
+    font-size: 0.95rem;
+    padding: 2rem;
+    background: var(--bg-secondary);
+    border-radius: 15px;
+    box-shadow: var(--shadow-sm);
+}
+
+footer a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+footer a:hover {
+    color: var(--secondary-color);
+    text-decoration: underline;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    body {
+        padding: 0;
+    }
+    
+    .header {
+        padding: 2rem 1rem;
+    }
+    
+    .header h1 {
+        font-size: 2rem;
+    }
+    
+    main {
+        padding: 1rem;
+    }
+    
+    .stock-container {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .stock-container h2 {
+        font-size: 1.5rem;
+    }
+    
+    .ai-pool-analysis {
+        padding: 1.5rem;
+    }
+    
+    .ai-pool-analysis h2 {
+        font-size: 1.8rem;
+    }
+    
+    .data-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .signal-list {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .indicator-section {
+        padding: 1.5rem;
+    }
+    
+    .indicator-section h3 {
+        font-size: 1.2rem;
+    }
+}
+
+@media (min-width: 1200px) {
+    .data-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stock-container,
+.ai-pool-analysis {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
+}
+
+/* 返回顶部按钮 */
+.back-to-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.5rem;
+    font-weight: bold;
+    box-shadow: var(--shadow-lg);
+    transition: all 0.3s ease;
+    display: none;
+    z-index: 1000;
+}
+
+.back-to-top:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-xl);
+    background: var(--secondary-gradient);
+}
+
+.back-to-top span {
+    display: block;
+    line-height: 1;
+}
+
+/* 页脚内容样式 */
+.footer-content {
+    text-align: center;
+}
+
+.footer-content p {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.footer-content .separator {
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+/* 打印样式 */
+@media print {
+    body {
+        background: white;
+        color: black;
+    }
+    
+    .header {
+        background: white;
+        color: black;
+        box-shadow: none;
+    }
+    
+    .stock-container,
+    .ai-pool-analysis {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+    
+    .back-to-top {
+        display: none !important;
+    }
+}

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="股票技术分析报告 - 专业的量化投资分析工具">
+    <meta name="keywords" content="股票分析,技术分析,量化投资,AI分析">
+    <meta name="author" content="Ashare-LLM-Analyst">
+    
+    <!-- 图标 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="apple-touch-icon" href="/favicon.svg">
+    
+    <!-- 预加载字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <title>📊 股票技术分析报告 | Ashare-LLM-Analyst</title>
+    
+    <!-- 样式 -->
+    <style>$styles</style>
+    
+    <!-- 结构化数据 -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Report",
+        "name": "股票技术分析报告",
+        "description": "专业的股票技术分析和AI投资建议报告",
+        "dateCreated": "REPLACE_GENERATE_TIME",
+        "author": {
+            "@type": "Organization",
+            "name": "Ashare-LLM-Analyst"
+        }
+    }
+    </script>
+</head>
+<body>
+    <!-- 页面头部 -->
+    <header class="header">
+        <div class="header-content">
+            <h1>📊 股票技术分析报告</h1>
+            <div class="report-time">
+                <span>🕐 生成时间：$generate_time</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要内容 -->
+    <main>
+        $content
+    </main>
+
+    <!-- 页面底部 -->
+    <footer>
+        <div class="footer-content">
+            <p>
+                <span>🚀 Powered by Ashare-LLM-Analyst</span>
+                <span class="separator">|</span>
+                <a href="https://github.com/mpquant/Ashare-LLM-Analyst" target="_blank" rel="noopener noreferrer">
+                    📖 GitHub 项目
+                </a>
+                <span class="separator">|</span>
+                <span>💡 专业的量化投资分析工具</span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- 返回顶部按钮 -->
+    <button id="backToTop" class="back-to-top" title="返回顶部">
+        <span>↑</span>
+    </button>
+
+    <!-- JavaScript -->
+    <script>
+        // 返回顶部功能
+        const backToTopBtn = document.getElementById('backToTop');
+        
+        window.addEventListener('scroll', () => {
+            if (window.pageYOffset > 300) {
+                backToTopBtn.style.display = 'block';
+            } else {
+                backToTopBtn.style.display = 'none';
+            }
+        });
+        
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // 添加页面加载动画
+        document.addEventListener('DOMContentLoaded', () => {
+            const containers = document.querySelectorAll('.stock-container, .ai-pool-analysis');
+            containers.forEach((container, index) => {
+                container.style.animationDelay = (index * 0.1) + 's';
+            });
+        });
+
+        // 表格行悬停效果增强
+        const tableRows = document.querySelectorAll('.data-table tr');
+        tableRows.forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.transform = 'scale(1.01)';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.transform = 'scale(1)';
+            });
+        });
+
+        // 信号列表项点击效果
+        const signalItems = document.querySelectorAll('.signal-list li');
+        signalItems.forEach(item => {
+            item.addEventListener('click', () => {
+                item.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    item.style.transform = 'scale(1)';
+                }, 150);
+            });
+        });
+    </script>
+</body>
+</html>

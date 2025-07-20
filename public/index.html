@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="股票技术分析报告 - 专业的量化投资分析工具">
+    <meta name="keywords" content="股票分析,技术分析,量化投资,AI分析">
+    <meta name="author" content="Ashare-LLM-Analyst">
+    
+    <!-- 图标 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="apple-touch-icon" href="/favicon.svg">
+    
+    <!-- 预加载字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <title>📊 股票技术分析报告 | Ashare-LLM-Analyst</title>
+    
+    <!-- 样式 -->
+    <style>:root {
+    /* 现代化配色方案 */
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    
+    /* 基础颜色 */
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --text-primary: #2d3748;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
+    --bg-primary: #f7fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #edf2f7;
+    --border-color: #e2e8f0;
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    
+    /* 状态颜色 */
+    --positive-color: #48bb78;
+    --negative-color: #f56565;
+    --neutral-color: #718096;
+    --warning-color: #ed8936;
+    --info-color: #4299e1;
+    
+    /* 字体 */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    margin: 0;
+    padding: 0;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    background-image: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.1) 0%, transparent 50%);
+}
+
+/* 头部样式 */
+.header {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 3rem 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+}
+
+.header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+}
+
+.header h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 1;
+}
+
+.report-time {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    position: relative;
+    z-index: 1;
+}
+
+.report-time span {
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* 主要内容区域 */
+main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* AI股票池分析样式 */
+.ai-pool-analysis {
+    background: var(--bg-secondary);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 3rem;
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-pool-analysis::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-gradient);
+}
+
+.ai-pool-analysis h2 {
+    color: var(--primary-color);
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 0 2rem 0;
+    text-align: center;
+    position: relative;
+}
+
+.ai-pool-analysis h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: var(--primary-gradient);
+    border-radius: 2px;
+}
+
+.ai-pool-analysis pre {
+    background: var(--bg-tertiary);
+    border-radius: 15px;
+    padding: 2rem;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-x: auto;
+    position: relative;
+}
+
+/* 结构化AI分析容器 */
+.ai-pool-analysis-container {
+    margin-bottom: 3rem;
+}
+
+/* AI分析部分样式 */
+.ai-section {
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.ai-section:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-xl);
+}
+
+.ai-section .section-header {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+}
+
+.ai-section .section-header h3 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.ai-section .section-icon {
+    font-size: 1.5rem;
+    opacity: 0.8;
+}
+
+.ai-section .section-content {
+    padding: 2rem;
+}
+
+.ai-section .analysis-text {
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+/* 个股分析卡片网格 */
+.stock-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.stock-analysis-card {
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.stock-analysis-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.stock-analysis-card .stock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.stock-analysis-card .stock-header h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.stock-analysis-card .stock-score {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.stock-analysis-card .stock-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.stock-analysis-card .detail-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.stock-analysis-card .detail-item .label {
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 80px;
+    font-size: 0.9rem;
+}
+
+.stock-analysis-card .detail-item .value {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.stock-analysis-card .detail-item .value.risk {
+    color: var(--negative-color);
+}
+
+.stock-analysis-card .detail-item .value.opportunity {
+    color: var(--positive-color);
+}
+
+/* 推荐股票列表 */
+.recommendations-container {
+    margin-bottom: 2rem;
+}
+
+.recommendations-container h4 {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+    margin: 0 0 1rem 0;
+    text-align: center;
+}
+
+.recommendations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.recommendation-item {
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.recommendation-item:hover {
+    transform: translateX(5px);
+    box-shadow: var(--shadow-md);
+}
+
+.recommendation-item .rec-rank {
+    background: var(--primary-gradient);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.recommendation-item .rec-content {
+    color: var(--text-secondary);
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+/* 情绪评分显示 */
+.sentiment-display {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.sentiment-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 2rem;
+    border-radius: 25px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    box-shadow: var(--shadow-md);
+}
+
+.sentiment-score.positive {
+    background: linear-gradient(135deg, #48bb78 0%, #68d391 100%);
+    color: white;
+}
+
+.sentiment-score.negative {
+    background: linear-gradient(135deg, #f56565 0%, #fc8181 100%);
+    color: white;
+}
+
+.sentiment-score.neutral {
+    background: linear-gradient(135deg, #718096 0%, #a0aec0 100%);
+    color: white;
+}
+
+.sentiment-score .score-icon {
+    font-size: 1.5rem;
+}
+
+.sentiment-score .score-value {
+    font-size: 1.4rem;
+}
+
+/* 策略详情 */
+.strategy-details {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* 股票容器样式 */
+.stock-container {
+    background: var(--bg-secondary);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 2.5rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.stock-container:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-xl);
+}
+
+.stock-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--secondary-gradient);
+}
+
+.stock-container h2 {
+    color: var(--text-primary);
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 0 2rem 0;
+    text-align: center;
+    position: relative;
+}
+
+.stock-container h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50px;
+    height: 3px;
+    background: var(--secondary-gradient);
+    border-radius: 2px;
+}
+
+/* 分割线样式 */
+.section-divider {
+    margin: 3rem 0 2rem 0;
+    text-align: center;
+    position: relative;
+}
+
+.section-divider h2 {
+    color: var(--text-primary);
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin: 0;
+    display: inline-block;
+    background: var(--bg-secondary);
+    padding: 0 2rem;
+    position: relative;
+    z-index: 2;
+}
+
+.section-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--border-color);
+    z-index: 1;
+}
+
+/* 数据网格 */
+.data-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin: 2rem 0;
+}
+
+/* 指标部分样式 */
+.indicator-section {
+    background: var(--bg-tertiary);
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.indicator-section:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.indicator-section h3 {
+    color: var(--primary-color);
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0 0 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.indicator-section h3::before {
+    content: '📈';
+    font-size: 1.2rem;
+}
+
+/* 数据表格样式 */
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+}
+
+.data-table th {
+    background: var(--primary-gradient);
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 1.2rem 1.5rem;
+    text-align: left;
+    position: relative;
+}
+
+.data-table th:first-child {
+    border-top-left-radius: 12px;
+}
+
+.data-table th:last-child {
+    border-top-right-radius: 12px;
+}
+
+.data-table td {
+    padding: 1.2rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 500;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+}
+
+.data-table tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table tr:nth-child(even) {
+    background: var(--bg-tertiary);
+}
+
+.data-table tr:hover td {
+    background: var(--bg-primary);
+}
+
+/* 信号列表样式 */
+.signal-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.signal-list li {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    border-left: 4px solid var(--primary-color);
+    font-weight: 500;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.signal-list li::before {
+    content: '💡';
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 1.2rem;
+    opacity: 0.3;
+}
+
+.signal-list li:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    border-left-color: var(--secondary-color);
+}
+
+/* 状态颜色 */
+.positive {
+    color: var(--positive-color);
+    font-weight: 600;
+    background: linear-gradient(45deg, var(--positive-color), #68d391);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.negative {
+    color: var(--negative-color);
+    font-weight: 600;
+    background: linear-gradient(45deg, var(--negative-color), #fc8181);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.neutral {
+    color: var(--neutral-color);
+    font-weight: 600;
+}
+
+/* 错误消息样式 */
+.error-message {
+    background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+    border: 1px solid var(--negative-color);
+    border-radius: 15px;
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-primary);
+}
+
+.error-message h3 {
+    color: var(--negative-color);
+    margin: 0 0 1rem 0;
+    font-size: 1.5rem;
+}
+
+.error-message ul {
+    text-align: left;
+    max-width: 500px;
+    margin: 1rem auto;
+}
+
+.error-message li {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+}
+
+/* 页脚样式 */
+footer {
+    text-align: center;
+    color: var(--text-muted);
+    margin: 3rem 0 1rem 0;
+    font-size: 0.95rem;
+    padding: 2rem;
+    background: var(--bg-secondary);
+    border-radius: 15px;
+    box-shadow: var(--shadow-sm);
+}
+
+footer a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+footer a:hover {
+    color: var(--secondary-color);
+    text-decoration: underline;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    body {
+        padding: 0;
+    }
+    
+    .header {
+        padding: 2rem 1rem;
+    }
+    
+    .header h1 {
+        font-size: 2rem;
+    }
+    
+    main {
+        padding: 1rem;
+    }
+    
+    .stock-container {
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .stock-container h2 {
+        font-size: 1.5rem;
+    }
+    
+    .ai-pool-analysis {
+        padding: 1.5rem;
+    }
+    
+    .ai-pool-analysis h2 {
+        font-size: 1.8rem;
+    }
+    
+    .data-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .signal-list {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .indicator-section {
+        padding: 1.5rem;
+    }
+    
+    .indicator-section h3 {
+        font-size: 1.2rem;
+    }
+}
+
+@media (min-width: 1200px) {
+    .data-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stock-container,
+.ai-pool-analysis {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
+}
+
+/* 返回顶部按钮 */
+.back-to-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    background: var(--primary-gradient);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.5rem;
+    font-weight: bold;
+    box-shadow: var(--shadow-lg);
+    transition: all 0.3s ease;
+    display: none;
+    z-index: 1000;
+}
+
+.back-to-top:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-xl);
+    background: var(--secondary-gradient);
+}
+
+.back-to-top span {
+    display: block;
+    line-height: 1;
+}
+
+/* 页脚内容样式 */
+.footer-content {
+    text-align: center;
+}
+
+.footer-content p {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.footer-content .separator {
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+/* 打印样式 */
+@media print {
+    body {
+        background: white;
+        color: black;
+    }
+    
+    .header {
+        background: white;
+        color: black;
+        box-shadow: none;
+    }
+    
+    .stock-container,
+    .ai-pool-analysis {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+    
+    .back-to-top {
+        display: none !important;
+    }
+}</style>
+    
+    <!-- 结构化数据 -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Report",
+        "name": "股票技术分析报告",
+        "description": "专业的股票技术分析和AI投资建议报告",
+        "dateCreated": "2025年07月20日 13时55分49秒",
+        "author": {
+            "@type": "Organization",
+            "name": "Ashare-LLM-Analyst"
+        }
+    }
+    </script>
+</head>
+<body>
+    <!-- 页面头部 -->
+    <header class="header">
+        <div class="header-content">
+            <h1>📊 股票技术分析报告</h1>
+            <div class="report-time">
+                <span>🕐 生成时间：2025年07月20日 13时55分49秒</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要内容 -->
+    <main>
+        <div class="ai-pool-analysis-container">
+<div class="section-divider"><h2>🤖 AI股票池整体策略分析</h2></div>
+
+            <div class="ai-section overall-section">
+                <div class="section-header">
+                    <h3>📊 技术面整体分析</h3>
+                    <div class="section-icon">🎯</div>
+                </div>
+                <div class="section-content">
+                    - 当前市场技术环境：股票池中所有个股均呈现MA5上穿MA20的看涨信号，显示短期趋势普遍向好。其中6只个股突破20日新高，表明市场存在较强的技术性突破动能。<br>- 技术强度分布：7只个股中有6只技术评分达到0.73（较高水平），仅中国船舶评分为0.60（中等水平），整体技术强度较高。<br>- 强势股票：北方稀土、中航沈飞、药明康德、美图公司、航发动力、国泰君安国际（评分均为0.73）<br>- 弱势股票：中国船舶（评分0.60，未突破区间高低点）<br>- 指标一致性：所有个股均呈现MA金叉与趋势向好的高度一致性，未发现明显技术背离。
+                </div>
+            </div>
+            
+
+            <div class="ai-section industry-section">
+                <div class="section-header">
+                    <h3>🏭 行业技术特征分析</h3>
+                    <div class="section-icon">📈</div>
+                </div>
+                <div class="section-content">
+                    - 行业表现：<br>  * 稀土/军工（北方稀土、中航沈飞、航发动力）：均突破20日新高，技术动量最强<br>  * 医药（药明康德）：突破形态但需观察量能配合<br>  * 科技（美图公司）：港股突破需注意外围市场影响<br>  * 金融（国泰君安国际）：港股突破但受制于金融板块整体弹性<br>  * 重工（中国船舶）：技术信号相对滞后<br>- 行业轮动：军工/稀土板块技术领先，金融/重工相对滞后<br>- 趋势持续性：突破新高的个股技术趋势持续性较强，需关注量能变化
+                </div>
+            </div>
+            
+
+            <div class="ai-section stocks-section">
+                <div class="section-header">
+                    <h3>📋 个股技术深度分析</h3>
+                    <div class="section-icon">🔍</div>
+                </div>
+                <div class="section-content">
+                    <div class='stock-cards-grid'>
+                <div class="stock-analysis-card">
+                    <div class="stock-header">
+                        <h4>北方稀土 (sh600111)</h4>
+                        <div class="stock-score">0.73（强势）</div>
+                    </div>
+                    <div class="stock-details">
+                        <div class="detail-item">
+                            <span class="label">📊 指标组合:</span>
+                            <span class="value">MA5/20金叉+新高突破，典型多头排列</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">📈 形态识别:</span>
+                            <span class="value">突破前高形成上升通道</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">⚠️ 风险点:</span>
+                            <span class="value risk">短期可能面临前高获利回吐</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">💡 机会点:</span>
+                            <span class="value opportunity">量能配合有望开启主升浪</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stock-analysis-card">
+                    <div class="stock-header">
+                        <h4>中航沈飞 (sh600760)</h4>
+                        <div class="stock-score">0.73（强势）</div>
+                    </div>
+                    <div class="stock-details">
+                        <div class="detail-item">
+                            <span class="label">📊 指标组合:</span>
+                            <span class="value">均线多头+放量突破</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">📈 形态识别:</span>
+                            <span class="value">W底颈线位突破</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">⚠️ 风险点:</span>
+                            <span class="value risk">军工板块波动较大</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">💡 机会点:</span>
+                            <span class="value opportunity">突破后理论涨幅可观</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stock-analysis-card">
+                    <div class="stock-header">
+                        <h4>药明康德 (sh603259)</h4>
+                        <div class="stock-score">0.73（强势）</div>
+                    </div>
+                    <div class="stock-details">
+                        <div class="detail-item">
+                            <span class="label">📊 指标组合:</span>
+                            <span class="value">均线修复完成</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">📈 形态识别:</span>
+                            <span class="value">下降趋势线突破</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">⚠️ 风险点:</span>
+                            <span class="value risk">医药板块政策敏感性</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">💡 机会点:</span>
+                            <span class="value opportunity">超跌反弹空间打开</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stock-analysis-card">
+                    <div class="stock-header">
+                        <h4>美图公司 (01357.HK)</h4>
+                        <div class="stock-score">0.73（强势）</div>
+                    </div>
+                    <div class="stock-details">
+                        <div class="detail-item">
+                            <span class="label">📊 指标组合:</span>
+                            <span class="value">港股通标的技术修复</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">📈 形态识别:</span>
+                            <span class="value">底部箱体突破</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">⚠️ 风险点:</span>
+                            <span class="value risk">港股流动性风险</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">💡 机会点:</span>
+                            <span class="value opportunity">技术面补涨需求</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stock-analysis-card">
+                    <div class="stock-header">
+                        <h4>中国船舶 (sh600150)</h4>
+                        <div class="stock-score">0.60（中等）</div>
+                    </div>
+                    <div class="stock-details">
+                        <div class="detail-item">
+                            <span class="label">📊 指标组合:</span>
+                            <span class="value">均线金叉但未突破</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">📈 形态识别:</span>
+                            <span class="value">区间震荡格局</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">⚠️ 风险点:</span>
+                            <span class="value risk">面临前高压制</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">💡 机会点:</span>
+                            <span class="value opportunity">突破24元将打开空间</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stock-analysis-card">
+                    <div class="stock-header">
+                        <h4>航发动力 (sh600893)</h4>
+                        <div class="stock-score">0.73（强势）</div>
+                    </div>
+                    <div class="stock-details">
+                        <div class="detail-item">
+                            <span class="label">📊 指标组合:</span>
+                            <span class="value">MACD双线零上金叉</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">📈 形态识别:</span>
+                            <span class="value">上升三角形突破</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">⚠️ 风险点:</span>
+                            <span class="value risk">短期技术超买</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">💡 机会点:</span>
+                            <span class="value opportunity">军工龙头领涨潜力</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stock-analysis-card">
+                    <div class="stock-header">
+                        <h4>国泰君安国际 (01788.HK)</h4>
+                        <div class="stock-score">0.73（强势）</div>
+                    </div>
+                    <div class="stock-details">
+                        <div class="detail-item">
+                            <span class="label">📊 指标组合:</span>
+                            <span class="value">港股金融技术反弹</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">📈 形态识别:</span>
+                            <span class="value">底部量价齐升</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">⚠️ 风险点:</span>
+                            <span class="value risk">金融股弹性不足</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">💡 机会点:</span>
+                            <span class="value opportunity">技术面估值修复</span>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                </div>
+            </div>
+            
+
+            <div class="ai-section strategy-section">
+                <div class="section-header">
+                    <h3>🎯 投资策略建议</h3>
+                    <div class="section-icon">💼</div>
+                </div>
+                <div class="section-content">
+                    推荐排序：<br>1. 航发动力(sh600893) | 重点买入 | 0.73 | 军工龙头+技术突破 | 中风险 | 前高+15%<br>2. 北方稀土(sh600111) | 积极配置 | 0.73 | 趋势加速+量价配合 | 中风险 | 通道上轨  <br>3. 中航沈飞(sh600760) | 择机建仓 | 0.73 | W底量度涨幅 | 中高风险 | 形态目标位<br>4. 药明康德(sh603259) | 分批介入 | 0.73 | 超跌技术修复 | 中风险 | 黄金分割位<br>5. 美图公司(01357.HK) | 谨慎参与 | 0.73 | 港股技术补涨 | 高风险 | 前平台压力<br><br>仓位管理：<br>- 单只个股仓位≤20%<br>- 突破确认后建仓（收盘站稳突破位3天）<br>- 总分仓控制在70%以内<br><br>风险控制：<br>- 止损：跌破MA20或突破位-5%<br>- 止盈：阶梯式（20%/50%/80%）<br>- 分散：覆盖3个以上行业
+                </div>
+            </div>
+            
+
+            <div class="ai-section risks-section">
+                <div class="section-header">
+                    <h3>⚖️ 技术面机会与风险</h3>
+                    <div class="section-icon">🎲</div>
+                </div>
+                <div class="section-content">
+                    机会：<br>- 军工/稀土板块突破行情延续<br>- 超跌股技术修复（药明康德）<br>- 港股技术补涨（美图、国君国际）<br><br>风险：  <br>- 突破后技术回踩（北方稀土）<br>- 港股流动性风险（美图公司）<br>- 区间突破失败（中国船舶）<br><br>应对策略：<br>- 突破确认后右侧交易<br>- 设置移动止盈保护利润<br>- 回避未突破压力个股
+                </div>
+            </div>
+            
+
+            <div class="ai-section sentiment-section">
+                <div class="section-header">
+                    <h3>😊 技术情绪评分</h3>
+                    <div class="section-icon">📊</div>
+                </div>
+                <div class="section-content">
+                    
+            <div class="sentiment-display">
+                <div class="sentiment-score positive">
+                    <span class="score-icon">😊</span>
+                    <span class="score-value">0.68</span>
+                </div>
+            </div>
+            <div class="analysis-text">- 综合评分：0.68（偏乐观）<br>- 依据：80%个股呈现强势技术信号<br>- 趋势：从中性转向乐观</div>
+            
+                </div>
+            </div>
+            
+
+            <div class="ai-section timeline-section">
+                <div class="section-header">
+                    <h3>⏰ 技术操作时间窗口</h3>
+                    <div class="section-icon">📅</div>
+                </div>
+                <div class="section-content">
+                    - 短期：关注军工股突破持续性（1-3天）<br>- 中期：布局技术修复个股（1-2周）<br>- 长期：持有趋势成型个股（1-3个月）
+                </div>
+            </div>
+            
+</div>
+        <div class="stock-container">
+            <h2>北方稀土 (sh600111) 分析报告</h2>
+            
+            <div class="section-divider">
+                <h2>基础数据</h2>
+            </div>
+            
+            <div class="data-grid">
+                
+            <div class="indicator-section">
+                <h3>基础数据</h3>
+                <table class="data-table">
+                    <tr>
+                        <th>指标</th>
+                        <th>数值</th>
+                    </tr>
+                    <tr><td>股票代码</td><td class="neutral">sh600111</td></tr><tr><td>股票名称</td><td class="neutral">北方稀土</td></tr><tr><td>最新收盘价</td><td class="neutral">32.96</td></tr><tr><td>涨跌幅</td><td class="positive">9.87%</td></tr><tr><td>最高价</td><td class="neutral">33.00</td></tr><tr><td>最低价</td><td class="neutral">29.83</td></tr><tr><td>成交量</td><td class="neutral">458,797,395</td></tr>
+                </table>
+            </div>
+            
+            </div>
+            
+            <div class="section-divider">
+                <h2>交易信号</h2>
+            </div>
+            
+            
+            <div class="indicator-section">
+                <h3>交易信号</h3>
+                <ul class="signal-list">
+                    <li>RSI超买，注意回调</li><li>股价突破布林上轨，超买状态</li><li>VR大于160，市场活跃度高</li>
+                </ul>
+            </div>
+            
+        </div>
+        
+
+        <div class="stock-container">
+            <h2>中航沈飞 (sh600760) 分析报告</h2>
+            
+            <div class="section-divider">
+                <h2>基础数据</h2>
+            </div>
+            
+            <div class="data-grid">
+                
+            <div class="indicator-section">
+                <h3>基础数据</h3>
+                <table class="data-table">
+                    <tr>
+                        <th>指标</th>
+                        <th>数值</th>
+                    </tr>
+                    <tr><td>股票代码</td><td class="neutral">sh600760</td></tr><tr><td>股票名称</td><td class="neutral">中航沈飞</td></tr><tr><td>最新收盘价</td><td class="neutral">65.64</td></tr><tr><td>涨跌幅</td><td class="positive">2.92%</td></tr><tr><td>最高价</td><td class="neutral">66.23</td></tr><tr><td>最低价</td><td class="neutral">63.50</td></tr><tr><td>成交量</td><td class="neutral">65,993,794</td></tr>
+                </table>
+            </div>
+            
+            </div>
+            
+            <div class="section-divider">
+                <h2>交易信号</h2>
+            </div>
+            
+            
+            <div class="indicator-section">
+                <h3>交易信号</h3>
+                <ul class="signal-list">
+                    <li>股价突破布林上轨，超买状态</li>
+                </ul>
+            </div>
+            
+        </div>
+        
+
+        <div class="stock-container">
+            <h2>药明康德 (sh603259) 分析报告</h2>
+            
+            <div class="section-divider">
+                <h2>基础数据</h2>
+            </div>
+            
+            <div class="data-grid">
+                
+            <div class="indicator-section">
+                <h3>基础数据</h3>
+                <table class="data-table">
+                    <tr>
+                        <th>指标</th>
+                        <th>数值</th>
+                    </tr>
+                    <tr><td>股票代码</td><td class="neutral">sh603259</td></tr><tr><td>股票名称</td><td class="neutral">药明康德</td></tr><tr><td>最新收盘价</td><td class="neutral">82.60</td></tr><tr><td>涨跌幅</td><td class="positive">1.95%</td></tr><tr><td>最高价</td><td class="neutral">83.14</td></tr><tr><td>最低价</td><td class="neutral">81.21</td></tr><tr><td>成交量</td><td class="neutral">41,579,552</td></tr>
+                </table>
+            </div>
+            
+            </div>
+            
+            <div class="section-divider">
+                <h2>交易信号</h2>
+            </div>
+            
+            
+            <div class="indicator-section">
+                <h3>交易信号</h3>
+                <ul class="signal-list">
+                    <li>KDJ超买，注意回调</li><li>VR大于160，市场活跃度高</li><li>ROC上穿均线，上升动能增强</li>
+                </ul>
+            </div>
+            
+        </div>
+        
+
+        <div class="stock-container">
+            <h2>美图公司 (01357.HK) 分析报告</h2>
+            
+            <div class="section-divider">
+                <h2>基础数据</h2>
+            </div>
+            
+            <div class="data-grid">
+                
+            <div class="indicator-section">
+                <h3>基础数据</h3>
+                <table class="data-table">
+                    <tr>
+                        <th>指标</th>
+                        <th>数值</th>
+                    </tr>
+                    <tr><td>股票代码</td><td class="neutral">01357.HK</td></tr><tr><td>股票名称</td><td class="neutral">美图公司</td></tr><tr><td>最新收盘价</td><td class="neutral">11.18</td></tr><tr><td>涨跌幅</td><td class="positive">5.47%</td></tr><tr><td>最高价</td><td class="neutral">11.38</td></tr><tr><td>最低价</td><td class="neutral">10.70</td></tr><tr><td>成交量</td><td class="neutral">121,572,025</td></tr>
+                </table>
+            </div>
+            
+            </div>
+            
+            <div class="section-divider">
+                <h2>交易信号</h2>
+            </div>
+            
+            
+            <div class="indicator-section">
+                <h3>交易信号</h3>
+                <ul class="signal-list">
+                    <li>KDJ超买，注意回调</li><li>RSI超买，注意回调</li><li>股价突破布林上轨，超买状态</li><li>VR大于160，市场活跃度高</li><li>ROC上穿均线，上升动能增强</li>
+                </ul>
+            </div>
+            
+        </div>
+        
+
+        <div class="stock-container">
+            <h2>中国船舶 (sh600150) 分析报告</h2>
+            
+            <div class="section-divider">
+                <h2>基础数据</h2>
+            </div>
+            
+            <div class="data-grid">
+                
+            <div class="indicator-section">
+                <h3>基础数据</h3>
+                <table class="data-table">
+                    <tr>
+                        <th>指标</th>
+                        <th>数值</th>
+                    </tr>
+                    <tr><td>股票代码</td><td class="neutral">sh600150</td></tr><tr><td>股票名称</td><td class="neutral">中国船舶</td></tr><tr><td>最新收盘价</td><td class="neutral">34.08</td></tr><tr><td>涨跌幅</td><td class="positive">0.62%</td></tr><tr><td>最高价</td><td class="neutral">34.19</td></tr><tr><td>最低价</td><td class="neutral">33.78</td></tr><tr><td>成交量</td><td class="neutral">40,867,187</td></tr>
+                </table>
+            </div>
+            
+            </div>
+            
+            <div class="section-divider">
+                <h2>交易信号</h2>
+            </div>
+            
+            
+            <div class="indicator-section">
+                <h3>交易信号</h3>
+                <ul class="signal-list">
+                    <li>VR大于160，市场活跃度高</li>
+                </ul>
+            </div>
+            
+        </div>
+        
+
+        <div class="stock-container">
+            <h2>航发动力 (sh600893) 分析报告</h2>
+            
+            <div class="section-divider">
+                <h2>基础数据</h2>
+            </div>
+            
+            <div class="data-grid">
+                
+            <div class="indicator-section">
+                <h3>基础数据</h3>
+                <table class="data-table">
+                    <tr>
+                        <th>指标</th>
+                        <th>数值</th>
+                    </tr>
+                    <tr><td>股票代码</td><td class="neutral">sh600893</td></tr><tr><td>股票名称</td><td class="neutral">航发动力</td></tr><tr><td>最新收盘价</td><td class="neutral">39.13</td></tr><tr><td>涨跌幅</td><td class="positive">3.11%</td></tr><tr><td>最高价</td><td class="neutral">39.39</td></tr><tr><td>最低价</td><td class="neutral">37.70</td></tr><tr><td>成交量</td><td class="neutral">47,690,105</td></tr>
+                </table>
+            </div>
+            
+            </div>
+            
+            <div class="section-divider">
+                <h2>交易信号</h2>
+            </div>
+            
+            
+            <div class="indicator-section">
+                <h3>交易信号</h3>
+                <ul class="signal-list">
+                    <li>MACD金叉形成，可能上涨</li><li>股价突破布林上轨，超买状态</li><li>ROC上穿均线，上升动能增强</li>
+                </ul>
+            </div>
+            
+        </div>
+        
+
+        <div class="stock-container">
+            <h2>国泰君安国际 (01788.HK) 分析报告</h2>
+            
+            <div class="section-divider">
+                <h2>基础数据</h2>
+            </div>
+            
+            <div class="data-grid">
+                
+            <div class="indicator-section">
+                <h3>基础数据</h3>
+                <table class="data-table">
+                    <tr>
+                        <th>指标</th>
+                        <th>数值</th>
+                    </tr>
+                    <tr><td>股票代码</td><td class="neutral">01788.HK</td></tr><tr><td>股票名称</td><td class="neutral">国泰君安国际</td></tr><tr><td>最新收盘价</td><td class="neutral">6.45</td></tr><tr><td>涨跌幅</td><td class="positive">1.26%</td></tr><tr><td>最高价</td><td class="neutral">6.57</td></tr><tr><td>最低价</td><td class="neutral">6.25</td></tr><tr><td>成交量</td><td class="neutral">471,202,152</td></tr>
+                </table>
+            </div>
+            
+            </div>
+            
+            <div class="section-divider">
+                <h2>交易信号</h2>
+            </div>
+            
+            
+            <div class="indicator-section">
+                <h3>交易信号</h3>
+                <ul class="signal-list">
+                    <li>RSI超买，注意回调</li><li>VR大于160，市场活跃度高</li>
+                </ul>
+            </div>
+            
+        </div>
+        
+    </main>
+
+    <!-- 页面底部 -->
+    <footer>
+        <div class="footer-content">
+            <p>
+                <span>🚀 Powered by Ashare-LLM-Analyst</span>
+                <span class="separator">|</span>
+                <a href="https://github.com/mpquant/Ashare-LLM-Analyst" target="_blank" rel="noopener noreferrer">
+                    📖 GitHub 项目
+                </a>
+                <span class="separator">|</span>
+                <span>💡 专业的量化投资分析工具</span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- 返回顶部按钮 -->
+    <button id="backToTop" class="back-to-top" title="返回顶部">
+        <span>↑</span>
+    </button>
+
+    <!-- JavaScript -->
+    <script>
+        // 返回顶部功能
+        const backToTopBtn = document.getElementById('backToTop');
+        
+        window.addEventListener('scroll', () => {
+            if (window.pageYOffset > 300) {
+                backToTopBtn.style.display = 'block';
+            } else {
+                backToTopBtn.style.display = 'none';
+            }
+        });
+        
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // 添加页面加载动画
+        document.addEventListener('DOMContentLoaded', () => {
+            const containers = document.querySelectorAll('.stock-container, .ai-pool-analysis');
+            containers.forEach((container, index) => {
+                container.style.animationDelay = (index * 0.1) + 's';
+            });
+        });
+
+        // 表格行悬停效果增强
+        const tableRows = document.querySelectorAll('.data-table tr');
+        tableRows.forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.transform = 'scale(1.01)';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.transform = 'scale(1)';
+            });
+        });
+
+        // 信号列表项点击效果
+        const signalItems = document.querySelectorAll('.signal-list li');
+        signalItems.forEach(item => {
+            item.addEventListener('click', () => {
+                item.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    item.style.transform = 'scale(1)';
+                }, 150);
+            });
+        });
+    </script>
+</body>
+</html>
