@@ -197,7 +197,7 @@ class DataFetcher:
         logger.info("请检查股票代码格式是否正确。常见格式:")
         logger.info("  - 上交所: sh000001 (上证指数), sh600036 (招商银行)")
         logger.info("  - 深交所: sz399001 (深证成指), sz000001 (平安银行)")
-        logger.info("  - 港股: 01357.HK (美图公司)")
+        logger.info("  - 港股: 00700.HK (腾讯控股)")
         logger.info("建议检查:")
         logger.info("  1. 股票代码格式是否正确")
         logger.info("  2. 网络连接是否正常")

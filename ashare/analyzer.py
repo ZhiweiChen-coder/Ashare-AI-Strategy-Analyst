@@ -327,6 +327,288 @@ class StockAnalyzer:
             logger.error(f"生成股票池AI分析失败: {str(e)}")
             return None
 
+    def generate_fundamental_analysis(self, analysis_params: Dict[str, Any]) -> Optional[str]:
+        """
+        生成基本面分析
+        
+        Args:
+            analysis_params: 分析参数字典
+            
+        Returns:
+            基本面分析结果文本，失败时返回None
+        """
+        if not self.llm:
+            logger.warning("LLM未配置，跳过基本面分析")
+            return None
+            
+        try:
+            logger.info("开始生成基本面分析...")
+            
+            # 收集股票的基本信息和技术数据
+            fundamental_data = []
+            for code in self.processed_data_dict.keys():
+                df = self.processed_data_dict[code]
+                stock_name = self.get_stock_name(code)
+                
+                # 计算一些基本的财务指标（基于技术数据的近似值）
+                recent_data = df.tail(60)  # 最近60个交易日
+                
+                # 价格相关指标
+                current_price = df.iloc[-1]['close']
+                high_52w = df['high'].max()
+                low_52w = df['low'].min()
+                avg_volume = df['volume'].mean()
+                price_volatility = df['close'].pct_change().std() * 100
+                
+                # 技术指标
+                rsi = df.iloc[-1].get('RSI', 0)
+                macd = df.iloc[-1].get('MACD', 0)
+                
+                # 构建基本面数据字典
+                stock_fundamental = {
+                    'name': stock_name,
+                    'code': code,
+                    'current_price': current_price,
+                    'high_52w': high_52w,
+                    'low_52w': low_52w,
+                    'price_volatility': price_volatility,
+                    'avg_volume': avg_volume,
+                    'rsi': rsi,
+                    'macd': macd,
+                    'price_trend': self._calculate_trend_strength(df),
+                    'volume_trend': self._calculate_volume_trend(df)
+                }
+                
+                fundamental_data.append(stock_fundamental)
+            
+            # 调用LLM生成基本面分析
+            analysis_text = self.llm.generate_fundamental_analysis(fundamental_data, analysis_params)
+            
+            if analysis_text:
+                logger.info("基本面分析生成成功")
+                return analysis_text
+            else:
+                logger.warning("基本面分析生成失败")
+                return None
+                
+        except Exception as e:
+            logger.error(f"生成基本面分析失败: {str(e)}")
+            return None
+
+    def generate_sector_rotation_analysis(self) -> Optional[str]:
+        """
+        生成板块轮动分析
+        
+        Returns:
+            板块轮动分析结果文本，失败时返回None
+        """
+        if not self.llm:
+            logger.warning("LLM未配置，跳过板块轮动分析")
+            return None
+            
+        try:
+            logger.info("开始生成板块轮动分析...")
+            
+            # 收集不同股票的表现数据
+            sector_data = []
+            for code in self.processed_data_dict.keys():
+                df = self.processed_data_dict[code]
+                stock_name = self.get_stock_name(code)
+                
+                # 计算不同时间周期的表现
+                performance_data = {
+                    'name': stock_name,
+                    'code': code,
+                    'daily_change': self._calculate_change(df, 1),
+                    'weekly_change': self._calculate_change(df, 5),
+                    'monthly_change': self._calculate_change(df, 22),
+                    'quarterly_change': self._calculate_change(df, 66),
+                    'volume_ratio': self._calculate_volume_ratio(df),
+                    'momentum': self._calculate_momentum(df)
+                }
+                
+                sector_data.append(performance_data)
+            
+            # 调用LLM生成板块轮动分析
+            analysis_text = self.llm.generate_sector_rotation_analysis(sector_data)
+            
+            if analysis_text:
+                logger.info("板块轮动分析生成成功")
+                return analysis_text
+            else:
+                logger.warning("板块轮动分析生成失败")
+                return None
+                
+        except Exception as e:
+            logger.error(f"生成板块轮动分析失败: {str(e)}")
+            return None
+
+    def generate_trend_strength_analysis(self) -> Optional[str]:
+        """
+        生成趋势强度分析
+        
+        Returns:
+            趋势强度分析结果文本，失败时返回None
+        """
+        if not self.llm:
+            logger.warning("LLM未配置，跳过趋势强度分析")
+            return None
+            
+        try:
+            logger.info("开始生成趋势强度分析...")
+            
+            # 收集趋势强度数据
+            trend_data = []
+            for code in self.processed_data_dict.keys():
+                df = self.processed_data_dict[code]
+                stock_name = self.get_stock_name(code)
+                
+                # 计算多个趋势强度指标
+                trend_strength = {
+                    'name': stock_name,
+                    'code': code,
+                    'trend_direction': self._calculate_trend_direction(df),
+                    'trend_strength': self._calculate_trend_strength(df),
+                    'support_level': self._calculate_support_resistance(df)['support'],
+                    'resistance_level': self._calculate_support_resistance(df)['resistance'],
+                    'breakout_potential': self._calculate_breakout_potential(df),
+                    'volume_confirmation': self._check_volume_confirmation(df)
+                }
+                
+                trend_data.append(trend_strength)
+            
+            # 调用LLM生成趋势强度分析
+            analysis_text = self.llm.generate_trend_strength_analysis(trend_data)
+            
+            if analysis_text:
+                logger.info("趋势强度分析生成成功")
+                return analysis_text
+            else:
+                logger.warning("趋势强度分析生成失败")
+                return None
+                
+        except Exception as e:
+            logger.error(f"生成趋势强度分析失败: {str(e)}")
+            return None
+
+    def generate_single_stock_analysis(self, stock_name: str, stock_data: Dict, analysis_depth: str) -> Optional[str]:
+        """
+        生成单股深度分析
+        
+        Args:
+            stock_name: 股票名称
+            stock_data: 股票数据
+            analysis_depth: 分析深度（快速分析/深度分析/全面评估）
+            
+        Returns:
+            单股分析结果文本，失败时返回None
+        """
+        if not self.llm:
+            logger.warning("LLM未配置，跳过单股分析")
+            return None
+            
+        try:
+            logger.info(f"开始生成 {stock_name} 的单股分析...")
+            
+            # 获取股票的完整数据
+            stock_code = None
+            for code, name in self.stock_codes.items():
+                if name == stock_name:
+                    stock_code = code
+                    break
+            
+            if not stock_code or stock_code not in self.processed_data_dict:
+                logger.error(f"未找到股票 {stock_name} 的数据")
+                return None
+            
+            df = self.processed_data_dict[stock_code]
+            
+            # 构建详细的单股分析数据
+            detailed_data = {
+                'name': stock_name,
+                'code': stock_code,
+                'analysis_depth': analysis_depth,
+                'price_data': {
+                    'current': df.iloc[-1]['close'],
+                    'high_52w': df['high'].max(),
+                    'low_52w': df['low'].min(),
+                    'avg_price_30d': df.tail(30)['close'].mean(),
+                    'volatility': df['close'].pct_change().std() * 100
+                },
+                'volume_data': {
+                    'current': df.iloc[-1]['volume'],
+                    'avg_volume_30d': df.tail(30)['volume'].mean(),
+                    'volume_trend': self._calculate_volume_trend(df)
+                },
+                'technical_indicators': {
+                    'rsi': df.iloc[-1].get('RSI', 0),
+                    'macd': df.iloc[-1].get('MACD', 0),
+                    'ma5': df.iloc[-1].get('MA5', 0),
+                    'ma20': df.iloc[-1].get('MA20', 0),
+                    'bollinger_upper': df.iloc[-1].get('BOLL_UB', 0),
+                    'bollinger_lower': df.iloc[-1].get('BOLL_LB', 0)
+                },
+                'trend_analysis': {
+                    'direction': self._calculate_trend_direction(df),
+                    'strength': self._calculate_trend_strength(df),
+                    'support_resistance': self._calculate_support_resistance(df)
+                }
+            }
+            
+            # 调用LLM生成单股分析
+            analysis_text = self.llm.generate_single_stock_analysis(detailed_data)
+            
+            if analysis_text:
+                logger.info(f"{stock_name} 单股分析生成成功")
+                return analysis_text
+            else:
+                logger.warning(f"{stock_name} 单股分析生成失败")
+                return None
+                
+        except Exception as e:
+            logger.error(f"生成 {stock_name} 单股分析失败: {str(e)}")
+            return None
+
+    def generate_market_insights(self, insight_type: str) -> Optional[str]:
+        """
+        生成市场洞察
+        
+        Args:
+            insight_type: 洞察类型
+            
+        Returns:
+            市场洞察结果文本，失败时返回None
+        """
+        if not self.llm:
+            logger.warning("LLM未配置，跳过市场洞察")
+            return None
+            
+        try:
+            logger.info(f"开始生成市场洞察: {insight_type}")
+            
+            # 收集市场整体数据
+            market_data = {
+                'insight_type': insight_type,
+                'market_summary': self._generate_market_summary(),
+                'sector_performance': self._analyze_sector_performance(),
+                'market_breadth': self._calculate_market_breadth(),
+                'sentiment_indicators': self._analyze_sentiment_indicators()
+            }
+            
+            # 调用LLM生成市场洞察
+            analysis_text = self.llm.generate_market_insights(market_data)
+            
+            if analysis_text:
+                logger.info("市场洞察生成成功")
+                return analysis_text
+            else:
+                logger.warning("市场洞察生成失败")
+                return None
+                
+        except Exception as e:
+            logger.error(f"生成市场洞察失败: {str(e)}")
+            return None
+
     def generate_html_report(self) -> str:
         """
         生成HTML分析报告
@@ -525,3 +807,202 @@ class StockAnalyzer:
         except Exception as e:
             logger.warning(f"生成{stock_name}多时间框架图表失败: {str(e)}")
             return None 
+
+    # 辅助方法
+    def _calculate_trend_strength(self, df: pd.DataFrame) -> float:
+        """计算趋势强度"""
+        try:
+            # 使用移动平均线斜率计算趋势强度
+            ma20 = df['close'].rolling(window=20).mean()
+            trend_slope = (ma20.iloc[-1] - ma20.iloc[-20]) / ma20.iloc[-20] * 100
+            return abs(trend_slope)
+        except:
+            return 0.0
+
+    def _calculate_volume_trend(self, df: pd.DataFrame) -> str:
+        """计算成交量趋势"""
+        try:
+            recent_vol = df.tail(10)['volume'].mean()
+            historical_vol = df.tail(30)['volume'].mean()
+            
+            ratio = recent_vol / historical_vol
+            if ratio > 1.2:
+                return "放量"
+            elif ratio < 0.8:
+                return "缩量"
+            else:
+                return "平量"
+        except:
+            return "未知"
+
+    def _calculate_change(self, df: pd.DataFrame, periods: int) -> float:
+        """计算指定周期的涨跌幅"""
+        try:
+            if len(df) < periods:
+                return 0.0
+            current = df.iloc[-1]['close']
+            previous = df.iloc[-(periods+1)]['close']
+            return ((current - previous) / previous) * 100
+        except:
+            return 0.0
+
+    def _calculate_volume_ratio(self, df: pd.DataFrame) -> float:
+        """计算量比"""
+        try:
+            current_volume = df.iloc[-1]['volume']
+            avg_volume = df.tail(30)['volume'].mean()
+            return current_volume / avg_volume if avg_volume > 0 else 1.0
+        except:
+            return 1.0
+
+    def _calculate_momentum(self, df: pd.DataFrame) -> float:
+        """计算动量指标"""
+        try:
+            current = df.iloc[-1]['close']
+            previous = df.iloc[-10]['close'] if len(df) > 10 else df.iloc[0]['close']
+            return ((current - previous) / previous) * 100
+        except:
+            return 0.0
+
+    def _calculate_trend_direction(self, df: pd.DataFrame) -> str:
+        """计算趋势方向"""
+        try:
+            ma5 = df['close'].rolling(window=5).mean().iloc[-1]
+            ma20 = df['close'].rolling(window=20).mean().iloc[-1]
+            current_price = df.iloc[-1]['close']
+            
+            if current_price > ma5 > ma20:
+                return "强势上涨"
+            elif current_price > ma5 and ma5 < ma20:
+                return "弱势上涨"
+            elif current_price < ma5 < ma20:
+                return "强势下跌"
+            else:
+                return "弱势下跌"
+        except:
+            return "横盘整理"
+
+    def _calculate_support_resistance(self, df: pd.DataFrame) -> Dict[str, float]:
+        """计算支撑阻力位"""
+        try:
+            recent_data = df.tail(60)
+            current_price = df.iloc[-1]['close']
+            
+            # 简单的支撑阻力位计算
+            high_levels = recent_data['high'].nlargest(3).mean()
+            low_levels = recent_data['low'].nsmallest(3).mean()
+            
+            return {
+                'support': low_levels,
+                'resistance': high_levels
+            }
+        except:
+            return {'support': 0.0, 'resistance': 0.0}
+
+    def _calculate_breakout_potential(self, df: pd.DataFrame) -> str:
+        """计算突破潜力"""
+        try:
+            current_price = df.iloc[-1]['close']
+            support_resistance = self._calculate_support_resistance(df)
+            
+            support = support_resistance['support']
+            resistance = support_resistance['resistance']
+            
+            distance_to_resistance = (resistance - current_price) / current_price * 100
+            distance_to_support = (current_price - support) / current_price * 100
+            
+            if distance_to_resistance < 2:
+                return "接近阻力位，突破概率高"
+            elif distance_to_support < 2:
+                return "接近支撑位，反弹概率高"
+            else:
+                return "在支撑阻力区间内"
+        except:
+            return "数据不足"
+
+    def _check_volume_confirmation(self, df: pd.DataFrame) -> bool:
+        """检查成交量确认"""
+        try:
+            recent_volume = df.tail(5)['volume'].mean()
+            historical_volume = df.tail(20)['volume'].mean()
+            
+            return recent_volume > historical_volume * 1.2
+        except:
+            return False
+
+    def _generate_market_summary(self) -> Dict[str, Any]:
+        """生成市场总体概况"""
+        total_stocks = len(self.processed_data_dict)
+        rising_stocks = 0
+        falling_stocks = 0
+        
+        for df in self.processed_data_dict.values():
+            if len(df) >= 2:
+                change = self._calculate_change(df, 1)
+                if change > 0:
+                    rising_stocks += 1
+                elif change < 0:
+                    falling_stocks += 1
+        
+        return {
+            'total_stocks': total_stocks,
+            'rising_stocks': rising_stocks,
+            'falling_stocks': falling_stocks,
+            'flat_stocks': total_stocks - rising_stocks - falling_stocks,
+            'market_breadth': rising_stocks / total_stocks if total_stocks > 0 else 0
+        }
+
+    def _analyze_sector_performance(self) -> List[Dict[str, Any]]:
+        """分析板块表现"""
+        sector_performance = []
+        
+        for code in self.processed_data_dict.keys():
+            df = self.processed_data_dict[code]
+            stock_name = self.get_stock_name(code)
+            
+            performance = {
+                'name': stock_name,
+                'code': code,
+                'daily_change': self._calculate_change(df, 1),
+                'weekly_change': self._calculate_change(df, 5),
+                'monthly_change': self._calculate_change(df, 22)
+            }
+            
+            sector_performance.append(performance)
+        
+        return sorted(sector_performance, key=lambda x: x['daily_change'], reverse=True)
+
+    def _calculate_market_breadth(self) -> Dict[str, float]:
+        """计算市场广度指标"""
+        advance_decline_ratio = self._generate_market_summary()['market_breadth']
+        
+        return {
+            'advance_decline_ratio': advance_decline_ratio,
+            'market_strength': advance_decline_ratio * 100
+        }
+
+    def _analyze_sentiment_indicators(self) -> Dict[str, Any]:
+        """分析市场情绪指标"""
+        high_volume_count = 0
+        high_volatility_count = 0
+        total_count = len(self.processed_data_dict)
+        
+        for df in self.processed_data_dict.values():
+            try:
+                # 检查成交量
+                volume_ratio = self._calculate_volume_ratio(df)
+                if volume_ratio > 1.5:
+                    high_volume_count += 1
+                
+                # 检查波动率
+                volatility = df['close'].pct_change().std() * 100
+                if volatility > 3:  # 3%以上波动率认为是高波动
+                    high_volatility_count += 1
+            except:
+                continue
+        
+        return {
+            'high_volume_ratio': high_volume_count / total_count if total_count > 0 else 0,
+            'high_volatility_ratio': high_volatility_count / total_count if total_count > 0 else 0,
+            'market_activity_level': (high_volume_count + high_volatility_count) / (2 * total_count) if total_count > 0 else 0
+        } 

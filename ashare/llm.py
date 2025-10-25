@@ -572,3 +572,479 @@ class LLMAnalyzer:
         except Exception as e:
             print(f"生成股票池AI分析失败: {str(e)}")
             return None
+
+    def generate_fundamental_analysis(self, fundamental_data: list, analysis_params: Dict[str, Any]) -> Optional[str]:
+        """
+        生成基本面分析
+        
+        Args:
+            fundamental_data: 基本面数据列表
+            analysis_params: 分析参数
+            
+        Returns:
+            基本面分析文本，失败时返回None
+        """
+        try:
+            print(f"开始生成基本面分析: {analysis_params['type']}")
+            
+            # 构建基本面分析的数据信息
+            fundamental_info = f"基本面分析 - {analysis_params['type']}：\n\n"
+            fundamental_info += f"分析周期: {analysis_params['time_period']}\n"
+            fundamental_info += f"分析日期: {pd.Timestamp.now().strftime('%Y-%m-%d')}\n\n"
+            
+            for stock in fundamental_data:
+                fundamental_info += f"股票名称: {stock['name']}\n"
+                fundamental_info += f"股票代码: {stock['code']}\n"
+                fundamental_info += f"当前价格: {stock['current_price']:.2f}\n"
+                fundamental_info += f"52周最高: {stock['high_52w']:.2f}\n"
+                fundamental_info += f"52周最低: {stock['low_52w']:.2f}\n"
+                fundamental_info += f"价格波动率: {stock['price_volatility']:.2f}%\n"
+                fundamental_info += f"平均成交量: {stock['avg_volume']:,.0f}\n"
+                fundamental_info += f"价格趋势强度: {stock['price_trend']:.2f}\n"
+                fundamental_info += f"成交量趋势: {stock['volume_trend']}\n"
+                fundamental_info += f"RSI: {stock['rsi']:.2f}\n"
+                fundamental_info += f"MACD: {stock['macd']:.4f}\n"
+                fundamental_info += "-" * 50 + "\n"
+            
+            # 构建基本面分析的系统提示词
+            system_prompt = f"""你是一个专业的基本面分析师。请基于提供的股票数据进行{analysis_params['type']}分析。
+
+分析要求：
+- 分析类型：{analysis_params['type']}
+- 时间周期：{analysis_params['time_period']}
+- 包含宏观分析：{analysis_params.get('include_macro', False)}
+- 包含行业分析：{analysis_params.get('include_industry', False)}
+- 包含竞争对手分析：{analysis_params.get('include_competitors', False)}
+- 深度风险评估：{analysis_params.get('risk_assessment', False)}
+
+请按以下结构进行分析：
+
+## 1. 财务健康度分析
+- 基于价格波动率和成交量分析公司稳定性
+- 通过技术指标判断资金流向和投资者信心
+
+## 2. 估值分析  
+- 分析当前价格相对于52周区间的位置
+- 评估价格趋势和估值合理性
+
+## 3. 成长性分析
+- 基于价格趋势强度分析成长潜力
+- 结合成交量趋势判断市场关注度
+
+## 4. 风险评估
+- 分析价格波动率风险
+- 评估技术指标显示的风险信号
+
+## 5. 投资建议
+- 综合基本面因素给出投资建议
+- 建议合适的投资策略和风险控制措施
+
+请用专业、客观的语言进行分析，并提供具体的数据支撑。"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": fundamental_info}
+            ]
+            
+            print("发送基本面分析请求...")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                stream=False
+            )
+            
+            if response.choices and response.choices[0].message:
+                analysis_text = response.choices[0].message.content.strip()
+                print("基本面分析生成成功")
+                return analysis_text
+            else:
+                print("基本面分析响应为空")
+                return None
+                
+        except Exception as e:
+            print(f"生成基本面分析失败: {str(e)}")
+            return None
+
+    def generate_sector_rotation_analysis(self, sector_data: list) -> Optional[str]:
+        """
+        生成板块轮动分析
+        
+        Args:
+            sector_data: 板块数据列表
+            
+        Returns:
+            板块轮动分析文本，失败时返回None
+        """
+        try:
+            print("开始生成板块轮动分析...")
+            
+            # 构建板块轮动分析数据
+            sector_info = "板块轮动分析：\n\n"
+            for stock in sector_data:
+                sector_info += f"股票名称: {stock['name']}\n"
+                sector_info += f"股票代码: {stock['code']}\n"
+                sector_info += f"日涨跌幅: {stock['daily_change']:.2f}%\n"
+                sector_info += f"周涨跌幅: {stock['weekly_change']:.2f}%\n"
+                sector_info += f"月涨跌幅: {stock['monthly_change']:.2f}%\n"
+                sector_info += f"季度涨跌幅: {stock['quarterly_change']:.2f}%\n"
+                sector_info += f"量比: {stock['volume_ratio']:.2f}\n"
+                sector_info += f"动量指标: {stock['momentum']:.2f}%\n"
+                sector_info += "-" * 40 + "\n"
+            
+            system_prompt = """你是一个专业的板块轮动分析师。请基于提供的多只股票在不同时间周期的表现数据，分析当前的板块轮动情况。
+
+请按以下结构进行分析：
+
+## 1. 板块表现排名
+- 按不同时间周期（日、周、月、季）对股票表现进行排名
+- 识别强势板块和弱势板块
+
+## 2. 轮动趋势分析
+- 分析板块轮动的时间节点和规律
+- 识别资金流向和热点板块转换
+
+## 3. 动量分析
+- 基于动量指标和量比分析板块活跃度
+- 预测可能的轮动方向
+
+## 4. 投资策略建议
+- 推荐当前应关注的强势板块
+- 建议板块配置比例和轮动策略
+- 提供进出时机建议
+
+请用专业的语言分析，并基于数据给出具体的投资建议。"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": sector_info}
+            ]
+            
+            print("发送板块轮动分析请求...")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                stream=False
+            )
+            
+            if response.choices and response.choices[0].message:
+                analysis_text = response.choices[0].message.content.strip()
+                print("板块轮动分析生成成功")
+                return analysis_text
+            else:
+                print("板块轮动分析响应为空")
+                return None
+                
+        except Exception as e:
+            print(f"生成板块轮动分析失败: {str(e)}")
+            return None
+
+    def generate_trend_strength_analysis(self, trend_data: list) -> Optional[str]:
+        """
+        生成趋势强度分析
+        
+        Args:
+            trend_data: 趋势数据列表
+            
+        Returns:
+            趋势强度分析文本，失败时返回None
+        """
+        try:
+            print("开始生成趋势强度分析...")
+            
+            # 构建趋势强度分析数据
+            trend_info = "趋势强度分析：\n\n"
+            for stock in trend_data:
+                trend_info += f"股票名称: {stock['name']}\n"
+                trend_info += f"股票代码: {stock['code']}\n"
+                trend_info += f"趋势方向: {stock['trend_direction']}\n"
+                trend_info += f"趋势强度: {stock['trend_strength']:.2f}\n"
+                trend_info += f"支撑位: {stock['support_level']:.2f}\n"
+                trend_info += f"阻力位: {stock['resistance_level']:.2f}\n"
+                trend_info += f"突破潜力: {stock['breakout_potential']}\n"
+                trend_info += f"成交量确认: {'是' if stock['volume_confirmation'] else '否'}\n"
+                trend_info += "-" * 40 + "\n"
+            
+            system_prompt = """你是一个专业的趋势分析师。请基于提供的趋势强度数据，分析各股票的趋势特征和投资机会。
+
+请按以下结构进行分析：
+
+## 1. 趋势强度排名
+- 按趋势强度对股票进行排名
+- 识别最强势和最弱势的股票
+
+## 2. 支撑阻力分析
+- 分析各股票的支撑阻力位有效性
+- 识别关键的价格区间
+
+## 3. 突破机会分析
+- 评估各股票的突破潜力
+- 结合成交量确认判断突破可信度
+
+## 4. 趋势交易策略
+- 基于趋势强度推荐交易策略
+- 提供进场点位和止损建议
+- 预测趋势可能的持续时间
+
+## 5. 风险提示
+- 识别趋势反转的早期信号
+- 提醒关注的风险点
+
+请结合技术分析理论，用专业的语言进行分析。"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": trend_info}
+            ]
+            
+            print("发送趋势强度分析请求...")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                stream=False
+            )
+            
+            if response.choices and response.choices[0].message:
+                analysis_text = response.choices[0].message.content.strip()
+                print("趋势强度分析生成成功")
+                return analysis_text
+            else:
+                print("趋势强度分析响应为空")
+                return None
+                
+        except Exception as e:
+            print(f"生成趋势强度分析失败: {str(e)}")
+            return None
+
+    def generate_single_stock_analysis(self, detailed_data: Dict[str, Any]) -> Optional[str]:
+        """
+        生成单股深度分析
+        
+        Args:
+            detailed_data: 详细的单股数据
+            
+        Returns:
+            单股分析文本，失败时返回None
+        """
+        try:
+            print(f"开始生成 {detailed_data['name']} 的单股分析...")
+            
+            # 构建单股分析数据
+            stock_info = f"单股深度分析 - {detailed_data['name']}：\n\n"
+            stock_info += f"股票代码: {detailed_data['code']}\n"
+            stock_info += f"分析深度: {detailed_data['analysis_depth']}\n\n"
+            
+            # 价格数据
+            price_data = detailed_data['price_data']
+            stock_info += "价格数据：\n"
+            stock_info += f"当前价格: {price_data['current']:.2f}\n"
+            stock_info += f"52周最高: {price_data['high_52w']:.2f}\n"
+            stock_info += f"52周最低: {price_data['low_52w']:.2f}\n"
+            stock_info += f"30日均价: {price_data['avg_price_30d']:.2f}\n"
+            stock_info += f"价格波动率: {price_data['volatility']:.2f}%\n\n"
+            
+            # 成交量数据
+            volume_data = detailed_data['volume_data']
+            stock_info += "成交量数据：\n"
+            stock_info += f"当前成交量: {volume_data['current']:,.0f}\n"
+            stock_info += f"30日平均成交量: {volume_data['avg_volume_30d']:,.0f}\n"
+            stock_info += f"成交量趋势: {volume_data['volume_trend']}\n\n"
+            
+            # 技术指标
+            tech_indicators = detailed_data['technical_indicators']
+            stock_info += "技术指标：\n"
+            stock_info += f"RSI: {tech_indicators['rsi']:.2f}\n"
+            stock_info += f"MACD: {tech_indicators['macd']:.4f}\n"
+            stock_info += f"MA5: {tech_indicators['ma5']:.2f}\n"
+            stock_info += f"MA20: {tech_indicators['ma20']:.2f}\n"
+            stock_info += f"布林带上轨: {tech_indicators['bollinger_upper']:.2f}\n"
+            stock_info += f"布林带下轨: {tech_indicators['bollinger_lower']:.2f}\n\n"
+            
+            # 趋势分析
+            trend_analysis = detailed_data['trend_analysis']
+            stock_info += "趋势分析：\n"
+            stock_info += f"趋势方向: {trend_analysis['direction']}\n"
+            stock_info += f"趋势强度: {trend_analysis['strength']:.2f}\n"
+            stock_info += f"支撑位: {trend_analysis['support_resistance']['support']:.2f}\n"
+            stock_info += f"阻力位: {trend_analysis['support_resistance']['resistance']:.2f}\n"
+            
+            # 根据分析深度调整系统提示词
+            if detailed_data['analysis_depth'] == "快速分析":
+                analysis_sections = "技术面分析、短期走势判断、交易建议"
+            elif detailed_data['analysis_depth'] == "深度分析":
+                analysis_sections = "技术面分析、基本面推测、中期趋势判断、风险评估、详细交易策略"
+            else:  # 全面评估
+                analysis_sections = "全面技术分析、基本面综合评估、多时间框架分析、风险收益比分析、长中短期策略、资金管理建议"
+            
+            system_prompt = f"""你是一个专业的股票分析师。请对 {detailed_data['name']} 进行{detailed_data['analysis_depth']}。
+
+分析要求包含：{analysis_sections}
+
+请按以下结构进行分析：
+
+## 1. 股票概况
+- 当前价格位置分析（相对52周区间）
+- 近期表现总结
+
+## 2. 技术分析
+- 技术指标解读（RSI、MACD、移动平均线、布林带）
+- 支撑阻力位分析
+- 趋势强度和方向判断
+
+## 3. 成交量分析
+- 成交量趋势变化
+- 量价关系分析
+- 资金流向判断
+
+## 4. 风险评估
+- 价格波动风险
+- 技术风险信号
+- 关键风险点位
+
+## 5. 投资建议
+- 具体的买卖建议
+- 目标价位设定
+- 止损点位建议
+- 适合的投资周期
+
+请提供专业、详细的分析，并给出具体的操作建议。"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": stock_info}
+            ]
+            
+            print("发送单股分析请求...")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.6,
+                stream=False
+            )
+            
+            if response.choices and response.choices[0].message:
+                analysis_text = response.choices[0].message.content.strip()
+                print(f"{detailed_data['name']} 单股分析生成成功")
+                return analysis_text
+            else:
+                print("单股分析响应为空")
+                return None
+                
+        except Exception as e:
+            print(f"生成单股分析失败: {str(e)}")
+            return None
+
+    def generate_market_insights(self, market_data: Dict[str, Any]) -> Optional[str]:
+        """
+        生成市场洞察
+        
+        Args:
+            market_data: 市场数据
+            
+        Returns:
+            市场洞察文本，失败时返回None
+        """
+        try:
+            insight_type = market_data['insight_type']
+            print(f"开始生成市场洞察: {insight_type}")
+            
+            # 构建市场洞察数据
+            market_info = f"市场洞察分析 - {insight_type}：\n\n"
+            
+            # 市场概况
+            summary = market_data['market_summary']
+            market_info += "市场概况：\n"
+            market_info += f"总股票数: {summary['total_stocks']}\n"
+            market_info += f"上涨股票: {summary['rising_stocks']}\n"
+            market_info += f"下跌股票: {summary['falling_stocks']}\n"
+            market_info += f"平盘股票: {summary['flat_stocks']}\n"
+            market_info += f"市场宽度: {summary['market_breadth']:.2%}\n\n"
+            
+            # 板块表现
+            market_info += "板块表现前5名：\n"
+            for i, stock in enumerate(market_data['sector_performance'][:5], 1):
+                market_info += f"{i}. {stock['name']}: 日涨跌{stock['daily_change']:+.2f}%, "
+                market_info += f"周涨跌{stock['weekly_change']:+.2f}%, 月涨跌{stock['monthly_change']:+.2f}%\n"
+            market_info += "\n"
+            
+            # 市场广度指标
+            breadth = market_data['market_breadth']
+            market_info += "市场广度指标：\n"
+            market_info += f"涨跌比率: {breadth['advance_decline_ratio']:.2%}\n"
+            market_info += f"市场强度: {breadth['market_strength']:.1f}\n\n"
+            
+            # 情绪指标
+            sentiment = market_data['sentiment_indicators']
+            market_info += "市场情绪指标：\n"
+            market_info += f"高成交量比例: {sentiment['high_volume_ratio']:.2%}\n"
+            market_info += f"高波动率比例: {sentiment['high_volatility_ratio']:.2%}\n"
+            market_info += f"市场活跃度: {sentiment['market_activity_level']:.2%}\n"
+            
+            # 根据洞察类型调整分析重点
+            if insight_type == "市场趋势预测":
+                focus = "基于当前数据预测未来1-3个月的市场趋势，识别关键转折点"
+            elif insight_type == "热点板块分析":
+                focus = "识别当前和未来的热点板块，分析资金轮动规律"
+            elif insight_type == "资金流向分析":
+                focus = "分析主力资金流向，判断增量资金和存量资金的配置偏好"
+            else:  # 情绪指标分析
+                focus = "分析投资者情绪变化，判断市场恐慌和贪婪程度"
+            
+            system_prompt = f"""你是一个资深的市场分析师。请基于提供的市场数据进行{insight_type}分析。
+
+分析重点：{focus}
+
+请按以下结构进行分析：
+
+## 1. 市场现状分析
+- 整体市场表现评估
+- 市场宽度和参与度分析
+
+## 2. 板块轮动分析
+- 强势板块识别
+- 资金流向特征
+- 板块轮动规律
+
+## 3. 市场情绪解读
+- 投资者情绪状态判断
+- 恐慌/贪婪指数评估
+- 市场活跃度分析
+
+## 4. 趋势预测
+- 短期趋势判断（1-4周）
+- 中期趋势预测（1-3个月）
+- 关键节点识别
+
+## 5. 投资策略建议
+- 基于当前市场状态的投资建议
+- 风险控制要点
+- 关注重点和时机选择
+
+请结合宏观经济和市场技术面，提供专业的市场洞察。"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": market_info}
+            ]
+            
+            print("发送市场洞察分析请求...")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                stream=False
+            )
+            
+            if response.choices and response.choices[0].message:
+                analysis_text = response.choices[0].message.content.strip()
+                print("市场洞察分析生成成功")
+                return analysis_text
+            else:
+                print("市场洞察分析响应为空")
+                return None
+                
+        except Exception as e:
+            print(f"生成市场洞察失败: {str(e)}")
+            return None

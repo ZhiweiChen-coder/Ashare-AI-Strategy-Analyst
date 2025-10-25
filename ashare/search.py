@@ -39,11 +39,6 @@ class StockSearcher:
             "隆基绿能": {"code": "sh601012", "market": "A股-上海", "category": "新能源"},
             "中国中免": {"code": "sh601888", "market": "A股-上海", "category": "消费"},
             "恒瑞医药": {"code": "sh600276", "market": "A股-上海", "category": "医药"},
-            "药明康德": {"code": "sh603259", "market": "A股-上海", "category": "医药"},
-            "北方稀土": {"code": "sh600111", "market": "A股-上海", "category": "稀土"},
-            "中航沈飞": {"code": "sh600760", "market": "A股-上海", "category": "军工"},
-            "中国船舶": {"code": "sh600150", "market": "A股-上海", "category": "军工"},
-            "航发动力": {"code": "sh600893", "market": "A股-上海", "category": "军工"},
             
             # 主要指数
             "上证指数": {"code": "sh000001", "market": "指数-上海", "category": "指数"},
@@ -66,8 +61,7 @@ class StockSearcher:
             "中国移动": {"code": "00941.HK", "market": "港股", "category": "通信"},
             "中国联通": {"code": "00762.HK", "market": "港股", "category": "通信"},
             "中国电信": {"code": "00728.HK", "market": "港股", "category": "通信"},
-            "美图公司": {"code": "01357.HK", "market": "港股", "category": "科技"},
-            "国泰君安国际": {"code": "01788.HK", "market": "港股", "category": "金融"},
+
             
             # 银行股
             "工商银行": {"code": "sh601398", "market": "A股-上海", "category": "银行"},
