@@ -12,6 +12,7 @@ supabase/migrations/0001_openashare_workspace.sql
 supabase/migrations/0002_credit_system.sql
 supabase/migrations/0003_fix_credit_rpc_ambiguity.sql
 supabase/migrations/0004_waitlist_admin.sql
+supabase/migrations/0005_waitlist_invitation_email.sql
 ```
 
 The migration creates the workspace tables, foreign keys, indexes, updated-at
@@ -116,6 +117,25 @@ on conflict (user_id) do nothing;
 
 The access check is enforced by Row Level Security, not merely by hiding the
 admin route in the frontend.
+
+## 6. Configure automatic invitation email
+
+The admin waitlist page sends an invitation email when an application is
+changed to `已邀请`. The email is sent server-side through Resend and is
+recorded in `waitlist_applications.invitation_sent_at`, so repeated clicks do
+not send another message.
+
+1. Create a Resend account and verify the sender domain.
+2. Apply `supabase/migrations/0005_waitlist_invitation_email.sql`.
+3. Add these server-side environment variables to the Next.js deployment:
+   `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, optional `RESEND_FROM_NAME`, and
+   `NEXT_PUBLIC_SITE_URL`.
+4. In `/admin/waitlist`, select `已邀请` for an application. The email link
+   opens `/work`, and the auth callback also defaults to `/work` after login.
+
+The browser never receives `RESEND_API_KEY`. If the provider is not configured,
+the admin page shows a configuration error and leaves the application status
+unchanged.
 
 ## Current boundary
 

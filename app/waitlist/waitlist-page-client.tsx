@@ -208,7 +208,7 @@ export function WaitlistPageClient() {
                 <textarea value={note} onChange={(event) => setNote(event.target.value.slice(0, 600))} rows={4} disabled={isLocked || isSubmitting} placeholder="例如：你现在如何整理研究资料，或期待 Agent 帮上什么忙。" />
               </label>
 
-              {isLocked ? <p className={styles.status}>你的申请正在{application.status === "reviewing" ? "审核" : application.status === "invited" ? "等待邀请" : "处理"}，暂时不能修改。</p> : null}
+              {isLocked ? <p className={styles.status}>{application.status === "invited" ? "邀请邮件已发送，请查收邮箱；如未收到，请检查垃圾邮件。" : `你的申请正在${application.status === "reviewing" ? "审核" : "处理"}，暂时不能修改。`}</p> : null}
               {error ? <p className={styles.error}>{error}</p> : null}
               {message ? <p className={styles.success}>{message}</p> : null}
               <button className={styles.submit} type="submit" disabled={isLocked || isSubmitting}>{isSubmitting ? "提交中…" : application ? "更新申请" : "提交申请"}</button>

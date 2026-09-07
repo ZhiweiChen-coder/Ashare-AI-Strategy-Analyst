@@ -43,6 +43,7 @@ export function AdminWaitlistClient() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [applications, setApplications] = useState<WaitlistApplication[]>([]);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const loadAdminData = useCallback(async (nextUser: User) => {
@@ -99,7 +100,23 @@ export function AdminWaitlistClient() {
   async function updateStatus(application: WaitlistApplication, status: WaitlistApplicationStatus) {
     setUpdatingId(application.id);
     setError("");
+    setMessage("");
     try {
+      if (status === "invited") {
+        const response = await fetch("/api/admin/waitlist/invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ applicationId: application.id }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(typeof payload?.error === "string" ? payload.error : "邀请邮件发送失败。");
+        }
+        setApplications((items) => items.map((item) => item.id === application.id ? payload.application as WaitlistApplication : item));
+        setMessage(payload.message ?? `邀请邮件已发送至 ${application.email}。`);
+        return;
+      }
+
       const supabase = createClient();
       const { data, error: updateError } = await supabase
         .from("waitlist_applications")
@@ -138,6 +155,7 @@ export function AdminWaitlistClient() {
         {isChecking ? <div className={styles.notice}>正在验证管理员权限…</div> : null}
         {user && isAdmin === false && !isChecking ? <div className={styles.denied}>当前账号没有后台访问权限。申请数据未被加载。</div> : null}
         {error ? <div className={styles.error}>{error}</div> : null}
+        {message ? <div className={styles.success}>{message}</div> : null}
 
         {isAdmin ? (
           <>

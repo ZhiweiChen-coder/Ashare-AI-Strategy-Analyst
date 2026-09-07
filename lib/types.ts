@@ -402,6 +402,8 @@ export type WaitlistApplication = {
   research_goals: string[];
   note: string;
   status: WaitlistApplicationStatus;
+  invitation_sent_at: string | null;
+  invitation_email_id: string | null;
   created_at: string;
   updated_at: string;
 };
