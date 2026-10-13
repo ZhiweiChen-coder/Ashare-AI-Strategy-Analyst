@@ -57,6 +57,16 @@ The landing page includes three recorded research workflows:
 
 The landing page serves H.264 MP4s and matching poster images from `public/marketing/`. Raw MOV source recordings are local files and are excluded from Git and deployment uploads.
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=ZhiweiChen-coder%2FOpenAshare&type=date&legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ZhiweiChen-coder/OpenAshare&type=date&theme=dark&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ZhiweiChen-coder/OpenAshare&type=date&legend=top-left" />
+    <img alt="OpenAshare GitHub Star History Chart" src="https://api.star-history.com/chart?repos=ZhiweiChen-coder/OpenAshare&type=date&legend=top-left" />
+  </picture>
+</a>
+
 ## Architecture
 
 ```mermaid

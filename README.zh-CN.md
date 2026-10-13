@@ -53,9 +53,13 @@
 
 ## Star 增长
 
-<p align="center">
-  <a href="https://star-history.com/#ZhiweiChen-coder/OpenAshare&Date">在 Star History 查看项目增长曲线</a>
-</p>
+<a href="https://www.star-history.com/?repos=ZhiweiChen-coder%2FOpenAshare&type=date&legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ZhiweiChen-coder/OpenAshare&type=date&theme=dark&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ZhiweiChen-coder/OpenAshare&type=date&legend=top-left" />
+    <img alt="OpenAshare GitHub Star History Chart" src="https://api.star-history.com/chart?repos=ZhiweiChen-coder/OpenAshare&type=date&legend=top-left" />
+  </picture>
+</a>
 
 曲线会随公开 Star 数据更新；如果这个项目对你有帮助，欢迎点一颗 Star。
 
