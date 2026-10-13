@@ -121,12 +121,12 @@ class StockSearcher:
         
         # 2. 精确匹配股票名称
         if not results:
-            exact_name_matches = self._exact_name_match(query_lower)
+            exact_name_matches = self._exact_name_match(query.casefold())
             results.extend(exact_name_matches)
         
         # 3. 模糊匹配股票名称
         if not results:
-            fuzzy_name_matches = self._fuzzy_name_match(query_lower)
+            fuzzy_name_matches = self._fuzzy_name_match(query.casefold())
             results.extend(fuzzy_name_matches)
         
         # 4. 模糊匹配股票代码

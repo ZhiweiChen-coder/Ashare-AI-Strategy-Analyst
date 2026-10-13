@@ -24,7 +24,7 @@ export async function GET(_: Request, context: { params: Promise<{ requestId: st
         status: "unknown",
         stage: "proxy_error",
         progress_pct: 0,
-        message: `进度代理不可用：${message}`,
+        message: `Progress service is unavailable: ${message}`,
         include_ai: false,
         updated_at: new Date().toISOString(),
       },

@@ -88,6 +88,7 @@ export type GlobalNewsItem = {
   impact_level: number;
   url?: string | null;
   related_symbols: string[];
+  raw_payload?: Record<string, unknown>;
 };
 
 export type WebSearchResult = {
@@ -142,6 +143,10 @@ export type MarketIndexSnapshot = {
   above_ma20: boolean;
   above_ma60: boolean;
   trend_score: number;
+  currency?: string;
+  data_as_of?: string | null;
+  provider?: string | null;
+  is_proxy?: boolean;
 };
 
 export type MarketRegimeResponse = {
@@ -154,6 +159,9 @@ export type MarketRegimeResponse = {
   notes: string[];
   indices: MarketIndexSnapshot[];
   updated_at?: string | null;
+  market?: "a_share" | "us" | "hk";
+  status?: "ready" | "partial" | "loading" | "unavailable";
+  data_gaps?: string[];
 };
 
 export type PortfolioPosition = {
@@ -175,6 +183,9 @@ export type PortfolioAnalysisResponse = {
   concentration_risk: string;
   technical_risk: string;
   rebalance_suggestions: string[];
+  currency?: string | null;
+  aggregation_available?: boolean;
+  data_gaps?: string[];
   positions: Array<{
     position: PortfolioPosition;
     current_price: number;
@@ -187,6 +198,8 @@ export type PortfolioAnalysisResponse = {
       overall_signal: string;
     };
     suggestion: string;
+    currency?: string;
+    data_as_of?: string | null;
   }>;
 };
 
@@ -304,15 +317,65 @@ export type StrategyHoldingAnalysisResponse = {
   holdings: StrategyHoldingAnalysis[];
 };
 
+export type SecFinancialFact = {
+  taxonomy: string; concept: string; unit: string; val: number;
+  start?: string | null; end: string; filed: string; form: string; accession: string;
+  url: string; freshness?: string;
+};
+
+export type SecCompanyData = {
+  company: { code: string; name: string; cik: string };
+  retrieved_at: string;
+  financials: SecFinancialFact[];
+  filings: Array<{ form: string; filed: string; report_date?: string; accession: string; url: string }>;
+  data_gaps: string[];
+};
+
+export type WatchlistItem = { code: string; name: string };
+export type WatchlistSnapshot = { initialized: boolean; items: WatchlistItem[] };
+export type WatchlistResult = WatchlistSnapshot & {
+  action: "add" | "remove" | "list";
+  stock_code?: string;
+  stock_name?: string;
+  changed?: boolean;
+};
+
 export type AgentResponse = {
   intent: string;
   summary: string;
   actions: string[];
+  ui_components?: Array<"chart" | "table" | "comparison" | "actions">;
+  clarification?: AgentClarification | null;
   citations: string[];
+  research_steps?: Array<{ tool: string; status: "completed" | "unavailable"; retrieved_at: string; evidence_count: number; reason_code?: string | null }>;
+  evidence?: Array<{ id: string; source: string; url?: string | null; retrieved_at: string; data_as_of?: string | null; freshness: string; title?: string | null; excerpts?: Array<{ location: string; text: string }> }>;
+  data_gaps?: string[];
   payload: {
+    watchlist?: WatchlistResult;
+    sec_company?: SecCompanyData;
+    sec_companies?: SecCompanyData[];
+    financial_comparison?: {
+      companies: SecCompanyData["company"][];
+      metrics: Array<{ metric: string; values: Array<{ code: string; fact: SecFinancialFact | null }>; comparable: boolean; comparison_note: string }>;
+      data_gaps: string[];
+    };
     _meta?: {
       tools_used: string[];
       cache_hits: string[];
+      usage?: { requests: number; input_tokens: number; output_tokens: number };
+      framework?: string;
+      estimated_cost_usd?: number | null;
+      latency_seconds?: number;
+      limit_reached?: boolean;
+      usage_unresolved?: boolean;
+      retrieval_calls?: number;
+      synthesis_incomplete?: boolean;
+      failure_type?: string;
+      run_id?: string;
+      finish_reason?: string;
+      limit_reason?: string;
+      diagnostics_saved?: boolean;
+      cost_basis?: string;
       rewritten_query?: string;
       slots?: {
         current_stock?: {
@@ -365,6 +428,12 @@ export type AgentResponse = {
     Record<string, unknown>;
 };
 
+export type AgentClarification = {
+  question: string;
+  options: string[];
+  allow_free_text: boolean;
+};
+
 export type CreditBalanceResponse = {
   balance: number | null;
   lifetime_granted: number;
@@ -379,6 +448,13 @@ export type AgentHistoryTurn = {
   intent?: string | null;
   stock_code?: string | null;
   stock_name?: string | null;
+};
+
+export type AgentResearchCapabilities = {
+  quick_available: boolean;
+  deep_available: boolean;
+  deep_unavailable_reason: string | null;
+  deep_unavailable_message: string | null;
 };
 
 export type UserSettingsResponse = {

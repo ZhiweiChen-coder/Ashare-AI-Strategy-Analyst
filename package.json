@@ -10,7 +10,7 @@
     "lint": "eslint app components lib next.config.ts"
   },
   "engines": {
-    "node": ">=20 <23"
+    "node": "22.x"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -25,9 +25,11 @@
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "three": "0.186.1",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@types/node": "^25.3.5"
+    "@types/node": "^25.3.5",
+    "@types/three": "0.186.0"
   }
 }

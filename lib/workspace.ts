@@ -1,6 +1,7 @@
 import type { AgentResponse, HotspotItem, StockAnalysisResponse } from "@/lib/types";
+import { decodeEntities } from "@/lib/i18n";
 
-export type ResearchContextType = "stock" | "topic" | "market" | "portfolio";
+export type ResearchContextType = "stock" | "topic" | "market" | "portfolio" | "news";
 
 export type ResearchContext = {
   type: ResearchContextType;
@@ -52,9 +53,9 @@ export type SupabaseWorkspaceBootstrap = {
 };
 
 export type WorkspaceEvent =
-  | { type: "message_delta"; message?: string }
-  | { type: "tool_started"; tool?: string; message?: string }
-  | { type: "tool_progress"; tool?: string; message?: string; progressPct?: number }
+  | { type: "message_delta"; message?: string; reset?: boolean; provisional?: boolean }
+  | { type: "tool_started"; tool?: string; message?: string; stage?: string }
+  | { type: "tool_progress"; tool?: string; message?: string; stage?: string; progressPct?: number; status?: "running" | "completed" | "unavailable"; reasonCode?: string }
   | { type: "tool_result"; tool?: string; payload?: Record<string, unknown> }
   | { type: "context_update"; context: ResearchContext }
   | { type: "citation"; citation: string }
@@ -75,7 +76,7 @@ export type AgentLabTrace = {
 export const AGENT_LAB_RUN_EVENT = "ashare:run-prompt";
 
 export function compactHeadline(value: string, maxLength = 54) {
-  const cleaned = value
+  const cleaned = decodeEntities(value)
     .replace(/\s+/g, " ")
     .replace(/^\s*(快讯|速報|原标题|滚动)\s*[：:]\s*/i, "")
     .replace(/^\s*[【\[][^】\]]+[】\]]\s*/g, "")

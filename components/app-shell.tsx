@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
+
 import {
   CSSProperties,
   createContext,
@@ -35,6 +37,7 @@ function clampSidebarWidth(nextWidth: number) {
 }
 
 export function AppShellProvider({ children }: { children: React.ReactNode }) {
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(420);
@@ -121,9 +124,12 @@ function useAppShell() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const { t } = useLanguage();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const isLanding = pathname === "/";
+  const isLanding = pathname === "/" || pathname === "/landing";
+  const isJournalArticle = pathname.startsWith("/journal/");
+  const isEditorialPage = isLanding || isJournalArticle;
   const isWorkspace = pathname === "/work";
   const isWaitlistFlow = pathname === "/waitlist" || pathname.startsWith("/admin");
   const isPreviewCapture = searchParams.get("preview") === "1";
@@ -132,9 +138,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     "--sidebar-width": `${sidebarWidth}px`,
   } as CSSProperties;
 
-  if (isLanding || isPreviewCapture || isWorkspace || isWaitlistFlow) {
+  if (isEditorialPage || isPreviewCapture || isWorkspace || isWaitlistFlow) {
     return (
-      <div className={`app-shell ${isLanding ? "landing-shell" : "no-sidebar"} ${isWorkspace ? "workspace-route" : ""}`}>
+      <div className={`app-shell ${isEditorialPage ? "landing-shell" : "no-sidebar"} ${isWorkspace ? "workspace-route" : ""}`}>
         <div className="main-content">{children}</div>
       </div>
     );
@@ -161,8 +167,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             className="agent-sidebar-resizer"
             onPointerDown={startResize}
-            aria-label="拖动调整 Agent 宽度"
-            title="拖动调整宽度"
+            aria-label={t("拖动调整 Agent 宽度")}
+            title={t("拖动调整宽度")}
           />
         ) : null}
         <div className="sidebar-body">

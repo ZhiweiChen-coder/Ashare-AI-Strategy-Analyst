@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 
+import { useLanguage } from "@/components/language-provider";
+
 type StockPanelLinkProps = {
   stockCode: string;
   panel: "overview" | "ai" | "news";
@@ -13,11 +15,13 @@ type StockPanelLinkProps = {
 };
 
 export function StockPanelLink({ stockCode, panel, className, children, compactLoading = false }: StockPanelLinkProps) {
+  const { locale } = useLanguage();
+  const en = locale === "en";
   const router = useRouter();
   const fallbackHref = `/work?symbol=${encodeURIComponent(stockCode)}`;
   const [isNavigating, setIsNavigating] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-  const openingSteps = panel === "news" ? NEWS_OPENING_STEPS : AI_OPENING_STEPS;
+  const openingSteps = panel === "news" ? NEWS_OPENING_STEPS[locale] : AI_OPENING_STEPS[locale];
 
   useEffect(() => {
     if (!isNavigating || (panel !== "ai" && panel !== "news")) {
@@ -52,13 +56,13 @@ export function StockPanelLink({ stockCode, panel, className, children, compactL
       aria-busy={isNavigating}
     >
       {isNavigating && compactLoading ? (
-        "打开中..."
+        en ? "Opening…" : "打开中..."
       ) : isNavigating && (panel === "ai" || panel === "news") ? (
         <span className="button-loading-copy button-loading-copy--panel">
-          <span className="button-loading-kicker">{panel === "ai" ? "AI 分析" : "相关新闻"}</span>
+          <span className="button-loading-kicker">{panel === "ai" ? (en ? "AI research" : "AI 分析") : (en ? "Company news" : "相关新闻")}</span>
           <strong>{openingSteps[stepIndex]}</strong>
           <span className="button-loading-stage">
-            {panel === "ai" ? "正在准备上下文" : "正在整理相关消息"}
+            {panel === "ai" ? (en ? "Preparing context" : "正在准备上下文") : (en ? "Gathering related news" : "正在整理相关消息")}
           </span>
           <span className={`button-loading-track ${panel}`} aria-hidden="true">
             <span style={{ width: `${((stepIndex + 1) / openingSteps.length) * 100}%` }} />
@@ -71,5 +75,11 @@ export function StockPanelLink({ stockCode, panel, className, children, compactL
   );
 }
 
-const AI_OPENING_STEPS = ["准备上下文", "建立分析请求", "打开 AI 面板"];
-const NEWS_OPENING_STEPS = ["锁定相关标的", "拉取关联新闻", "打开新闻面板"];
+const AI_OPENING_STEPS = {
+  en: ["Prepare context", "Build the research request", "Open the research panel"],
+  zh: ["准备上下文", "建立分析请求", "打开 AI 面板"],
+};
+const NEWS_OPENING_STEPS = {
+  en: ["Identify the company", "Retrieve related news", "Open the news panel"],
+  zh: ["锁定相关标的", "拉取关联新闻", "打开新闻面板"],
+};

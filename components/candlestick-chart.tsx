@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { createChart, CandlestickSeries, type IChartApi, type ISeriesApi } from "lightweight-charts";
+import { createChart, CandlestickSeries, LineSeries, type IChartApi } from "lightweight-charts";
 
 export type ChartPoint = {
   date: string;
@@ -17,6 +17,10 @@ type CandlestickChartProps = {
   height?: number;
   symbol?: string;
   compact?: boolean;
+  surface?: boolean;
+  chartType?: "candles" | "line";
+  fill?: boolean;
+  onReady?: (chart: IChartApi | null) => void;
 };
 
 function toChartTime(dateStr: string): string {
@@ -24,10 +28,10 @@ function toChartTime(dateStr: string): string {
   return d; // YYYY-MM-DD
 }
 
-export function CandlestickChart({ data, height = 400, symbol = "", compact = false }: CandlestickChartProps) {
+export function CandlestickChart({ data, height = 400, symbol = "", compact = false, surface = false, chartType = "candles", fill = false, onReady }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+
 
   useEffect(() => {
     if (!containerRef.current || !data.length) return;
@@ -39,20 +43,23 @@ export function CandlestickChart({ data, height = 400, symbol = "", compact = fa
     const downColor = rootStyle.getPropertyValue("--color-down").trim() || "#c25b3a";
 
     const chart = createChart(containerRef.current, {
-      layout: { background: { color: "#ffffff" }, textColor: "#0d0d0d" },
+      layout: { background: { color: surface ? "#f2efe8" : "#ffffff" }, textColor: surface ? "#807c74" : "#0d0d0d", fontSize: surface ? 10 : 12 },
       grid: {
         vertLines: { color: compact ? "rgba(0,0,0,0.025)" : "rgba(0,0,0,0.06)" },
         horzLines: { color: compact ? "rgba(0,0,0,0.035)" : "rgba(0,0,0,0.06)" },
       },
       width: containerRef.current.clientWidth,
-      height,
+      height: fill ? containerRef.current.clientHeight || height : height,
       timeScale: {
         borderColor: compact ? "transparent" : "rgba(0,0,0,0.08)",
-        timeVisible: !compact,
+        timeVisible: false,
         secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
         // A large offset leaves most of a short series empty on full-size charts.
-        rightOffset: compact ? 8 : 2,
+        rightOffset: surface ? 1 : compact ? 8 : 2,
         barSpacing: 8,
+        minBarSpacing: .1,
       },
       rightPriceScale: { borderColor: compact ? "transparent" : "rgba(0,0,0,0.08)", visible: !compact },
       handleScroll: {
@@ -69,47 +76,40 @@ export function CandlestickChart({ data, height = 400, symbol = "", compact = fa
       },
     });
 
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor,
-      downColor,
-      borderVisible: false,
-      wickUpColor: upColor,
-      wickDownColor: downColor,
-    });
+    const validData = data.filter(p => p.open != null && p.high != null && p.low != null && p.close != null);
+    if (chartType === "line") {
+      const series = chart.addSeries(LineSeries, { color: upColor, lineWidth: 2 });
+      series.setData(validData.map(p => ({ time: toChartTime(p.date), value: p.close! })));
+    } else {
+      const series = chart.addSeries(CandlestickSeries, { upColor, downColor, borderVisible: false, wickUpColor: upColor, wickDownColor: downColor });
+      series.setData(validData.map(p => ({ time: toChartTime(p.date), open: p.open!, high: p.high!, low: p.low!, close: p.close! })));
+    }
 
-    const seriesData = data
-      .filter((p) => p.open != null && p.high != null && p.low != null && p.close != null)
-      .map((p) => ({
-        time: toChartTime(p.date),
-        open: p.open!,
-        high: p.high!,
-        low: p.low!,
-        close: p.close!,
-      }));
-
-    candlestickSeries.setData(seriesData);
     chart.timeScale().fitContent();
 
     chartRef.current = chart;
-    seriesRef.current = candlestickSeries;
+    onReady?.(chart);
 
     const onResize = () => {
-      if (containerRef.current && chartRef.current) chartRef.current.applyOptions({ width: containerRef.current.clientWidth });
+      if (containerRef.current && chartRef.current) chartRef.current.applyOptions({ width: containerRef.current.clientWidth, ...(fill ? { height: containerRef.current.clientHeight } : {}) });
     };
+    const observer = new ResizeObserver(onResize);
+    observer.observe(containerRef.current);
     window.addEventListener("resize", onResize);
 
     return () => {
+      observer.disconnect();
       window.removeEventListener("resize", onResize);
+      onReady?.(null);
       chart.remove();
       chartRef.current = null;
-      seriesRef.current = null;
     };
-  }, [compact, data, height]);
+  }, [compact, data, height, surface, chartType, fill, onReady]);
 
   return (
-    <div className="candlestick-wrap" style={{ width: "100%", minHeight: height }}>
+    <div className={`candlestick-wrap${fill ? " candlestick-wrap--fill" : ""}`} style={{ width: "100%", ...(fill ? { height: "100%", minHeight: 0 } : { minHeight: height }) }}>
       {symbol ? <div className="chart-symbol">{symbol}</div> : null}
-      <div ref={containerRef} />
+      <div ref={containerRef} style={fill ? { height: "100%" } : undefined} />
     </div>
   );
 }

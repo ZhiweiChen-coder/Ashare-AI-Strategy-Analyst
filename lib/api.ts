@@ -2,6 +2,8 @@ import {
   AnalysisProgressResponse,
   AgentHistoryTurn,
   AgentResponse,
+  AgentResearchCapabilities,
+  WatchlistItem, WatchlistSnapshot, WatchlistResult,
   CreditBalanceResponse,
   GlobalNewsItem,
   HotspotDetailResponse,
@@ -23,6 +25,10 @@ import { createClient } from "@/utils/supabase/client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 const HOSTED_API_ORIGIN = "https://api.openashare.com";
+
+export function getAgentResearchCapabilities(): Promise<AgentResearchCapabilities> {
+  return request<AgentResearchCapabilities>("/api/agent/capabilities", { cache: "no-store" });
+}
 
 /**
  * Server Components / RSC run in Node: relative fetch("/api/...") does not hit FastAPI.
@@ -147,6 +153,18 @@ export function getWorkspaceBootstrap(accessToken: string): Promise<SupabaseWork
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
+}
+
+export function getWorkspaceWatchlist(): Promise<WatchlistSnapshot> {
+  return request<WatchlistSnapshot>("/api/workspace/watchlist", { cache: "no-store" });
+}
+
+export function initializeWorkspaceWatchlist(items: WatchlistItem[]): Promise<WatchlistSnapshot> {
+  return request<WatchlistSnapshot>("/api/workspace/watchlist/initialize", { method: "POST", body: JSON.stringify({ items }) });
+}
+
+export function updateWorkspaceWatchlist(action: "add" | "remove", code: string): Promise<WatchlistResult> {
+  return request<WatchlistResult>("/api/workspace/watchlist", { method: "POST", body: JSON.stringify({ action, code }) });
 }
 
 async function getBrowserAuthHeaders(): Promise<Record<string, string>> {
@@ -274,10 +292,11 @@ export function searchStocksWithOptions(
 
 export function getStockAnalysis(
   code: string,
-  options?: { includeAi?: boolean; requestId?: string; requestInit?: RequestInit },
+  options?: { includeAi?: boolean; requestId?: string; requestInit?: RequestInit; language?: "en-US" | "zh-CN" },
 ): Promise<StockAnalysisResponse> {
   const includeAi = options?.includeAi ?? true;
   const params = new URLSearchParams();
+  if (options?.language) params.set("language", options.language);
   if (!includeAi) {
     params.set("include_ai", "false");
   }
@@ -393,8 +412,8 @@ export function getHotspots(): Promise<HotspotItem[]> {
   return requestWithTimeout("/api/hotspots", 9000);
 }
 
-export function getGlobalNews(): Promise<GlobalNewsItem[]> {
-  return requestWithTimeout("/api/news/global", 8000, { cache: "no-store" });
+export function getGlobalNews(market: "global" | "us" = "global"): Promise<GlobalNewsItem[]> {
+  return requestWithTimeout(`/api/news/global?market=${market}`, 8000, { cache: "no-store" });
 }
 
 export function webSearch(query: string, limit = 8): Promise<WebSearchResult[]> {
@@ -405,12 +424,13 @@ export function getHotspotDetail(topic: string): Promise<HotspotDetailResponse> 
   return requestWithTimeout(`/api/hotspots/${encodeURIComponent(topic)}`, 9000);
 }
 
-export function getMarketRegime(options?: { requestInit?: RequestInit }): Promise<MarketRegimeResponse> {
-  return requestWithTimeout("/api/market-regime", 4000, options?.requestInit);
+export function getMarketRegime(options?: { requestInit?: RequestInit; market?: "a_share" | "us" | "hk"; language?: "en-US" | "zh-CN" }): Promise<MarketRegimeResponse> {
+  const params = new URLSearchParams({ market: options?.market ?? "a_share", language: options?.language ?? "en-US" });
+  return requestWithTimeout(`/api/market-regime?${params}`, 4000, { ...options?.requestInit, cache: "no-store" });
 }
 
-export function getPortfolioAnalysis(options?: { requestInit?: RequestInit }): Promise<PortfolioAnalysisResponse> {
-  return request("/api/portfolio/analysis", {
+export function getPortfolioAnalysis(options?: { requestInit?: RequestInit; language?: "en-US" | "zh-CN" }): Promise<PortfolioAnalysisResponse> {
+  return request(`/api/portfolio/analysis?language=${options?.language ?? "en-US"}`, {
     ...(options?.requestInit ?? {}),
     cache: "no-store",
   });
@@ -585,6 +605,8 @@ export type AgentStreamHandlers = {
   onEvent?: (event: WorkspaceEvent) => void;
   signal?: AbortSignal;
   timeoutMs?: number;
+  language?: "auto" | "en-US" | "zh-CN";
+  researchMode?: "quick" | "deep";
 };
 
 /**
@@ -599,7 +621,8 @@ export async function streamAgent(
   handlers: AgentStreamHandlers = {},
 ): Promise<AgentResponse> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), handlers.timeoutMs ?? AGENT_REQUEST_TIMEOUT_MS);
+  const requestTimeoutMs = handlers.timeoutMs ?? (handlers.researchMode === "deep" ? 570_000 : AGENT_REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
   const requestId = createAgentRequestId();
   if (handlers.signal) {
     if (handlers.signal.aborted) controller.abort(handlers.signal.reason);
@@ -611,7 +634,7 @@ export async function streamAgent(
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(await getBrowserAuthHeaders()) },
-      body: JSON.stringify({ query, history, session_id: sessionId, request_id: requestId }),
+      body: JSON.stringify({ query, history, session_id: sessionId, request_id: requestId, language: handlers.language ?? "auto", research_mode: handlers.researchMode ?? "quick" }),
       signal: controller.signal,
     });
     if (!response.ok || !response.body) {
@@ -649,9 +672,18 @@ export async function streamAgent(
       const progressPct = typeof payload.progress_pct === "number" ? payload.progress_pct : 0;
       const meta = payload.meta && typeof payload.meta === "object" ? (payload.meta as Record<string, unknown>) : {};
       const tool = typeof meta.tool === "string" ? meta.tool : undefined;
+      const stage = typeof payload.stage === "string" ? payload.stage : undefined;
 
-      if (eventName === "progress" || eventName === "start") {
-        handlers.onEvent?.({ type: tool ? "tool_progress" : "tool_started", tool, message, progressPct });
+      if (eventName === "token") {
+        // Keep drafts from older servers private during rolling upgrades.
+        if (meta.provisional !== false) {
+          eventName = "message";
+          return;
+        }
+        handlers.onEvent?.({ type: "message_delta", message: typeof meta.delta === "string" ? meta.delta : "", reset: meta.reset === true, provisional: false });
+      } else if (eventName === "progress" || eventName === "start") {
+        const status = payload.stage === "tool_completed" ? "completed" : payload.stage === "tool_error" ? "unavailable" : "running";
+        handlers.onEvent?.({ type: tool ? "tool_progress" : "tool_started", tool, message, stage, progressPct, status, reasonCode: typeof meta.reason_code === "string" ? meta.reason_code : undefined });
       } else if (eventName === "result" && payload.payload && typeof payload.payload === "object") {
         result = payload.payload as AgentResponse;
         handlers.onEvent?.({ type: "message_completed", response: result });
@@ -674,6 +706,7 @@ export async function streamAgent(
     return result;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
+      if (handlers.signal?.aborted) throw new Error("Research cancelled");
       throw new Error("Agent 请求超时，请检查后端服务后重试");
     }
     throw error instanceof Error ? error : new Error(String(error));

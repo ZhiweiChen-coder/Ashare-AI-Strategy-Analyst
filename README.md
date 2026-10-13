@@ -1,134 +1,95 @@
-<p align="center">
-  <img src="public/favicon.svg" alt="OpenAshare Logo" width="128" />
-</p>
-
-<h1 align="center">OpenAshare</h1>
+# OpenAshare
 
 <p align="center">
-  <a href="README.md"><strong>中文</strong></a>
-  ·
-  <a href="README.en.md">English</a>
+  <a href="README.md"><strong>English</strong></a> · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 <p align="center">
-  <strong>面向 A 股与港股的 AI 研究工作台。</strong><br />
-  行情、技术面、新闻、热点、持仓和 Agent，一站式完成。
+  <strong>A multilingual research desk for US, mainland China, and Hong Kong equities.</strong><br />
+  Connect prices, news, filings, charts, and portfolio context in one research workflow.
 </p>
 
 <p align="center">
   <a href="https://github.com/ZhiweiChen-coder/OpenAshare/stargazers"><img src="https://img.shields.io/github/stars/ZhiweiChen-coder/OpenAshare?style=flat&amp;label=GitHub%20Stars&amp;color=0f766e" alt="GitHub Stars" /></a>
-  <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js-15.5-000000?logo=nextdotjs&amp;logoColor=white" alt="Next.js" /></a>
+  <a href="https://nextjs.org/"><img src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&amp;logoColor=white" alt="Next.js" /></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&amp;logoColor=white" alt="FastAPI" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&amp;logoColor=white" alt="Python" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-16a34a" alt="MIT License" /></a>
 </p>
 
-<p align="center">
-  <a href="#快速开始">立即运行</a>
-  ·
-  <a href="#产品一览">查看功能</a>
-  ·
-  <a href="#加入微信群">加入微信群</a>
-</p>
+OpenAshare brings stock research into one workspace. Follow a company, review its price history and news, inspect available filings and market context, and ask an AI research agent follow-up questions with the research context retained.
 
-<p align="center">
-  <img src="assets/screenshots/agent-research-beta.png" alt="OpenAshare Agent 研究工作台：分析比亚迪并保留对话上下文" width="960" />
-</p>
+English is the default interface language, and US equities are the default market. Simplified Chinese is available from the language switcher. Change the workspace market to mainland China or Hong Kong in settings.
 
-> **云端 Beta 正在开放。** 也可以直接本地运行，自己掌控数据与模型。
+> **Research use only.** OpenAshare does not provide investment advice or place trades. Market data may be delayed, incomplete, or unavailable depending on the instrument and provider. Verify important facts against the original source.
 
-输入股票代码，快速完成：**看行情 → 查新闻 → 问 Agent → 做跟踪**。
+## Markets and data coverage
 
-## 加入微信群
+| Market | Example symbols | Current workflow |
+| --- | --- | --- |
+| United States | `AAPL`, `US.AAPL`, `US.BRK.B` | Historical prices and charts; SEC filing metadata and selected standardized financial facts for verified issuers; news coverage depends on configured providers. |
+| Mainland China | `sh600036`, `sz000001` | A-share search and daily price history through the existing Ashare / AkShare data paths, with China-focused news and market themes. |
+| Hong Kong | `00700.HK` | Hong Kong equity price history and charts, plus Hang Seng market context. Company news and other research data depend on provider coverage. |
 
-欢迎大家加入 OpenAshare 体验群，交流使用体验、研究想法和项目反馈。请使用微信扫描下方二维码加入群聊：
+US prices use Yahoo Finance with an optional Finnhub fallback. Hong Kong symbols are normalized inside the app and mapped to Yahoo Finance's exchange symbol format. Mainland China data uses the existing Ashare and AkShare integrations. Provider availability, exchange holidays, symbol formats, rate limits, and source terms can affect results.
 
-<p align="center">
-  <img src="assets/community/wechat-group.png" alt="OpenAshare 微信群活码" width="400" />
-</p>
+Coverage is not identical across markets. SEC tools apply to SEC-verified US issuers; they do not provide equivalent filing coverage for mainland China or Hong Kong companies. The market overview currently uses ETF proxies for major US indices, four mainland indices, and the Hang Seng Index for Hong Kong. It is a research view, not a complete market scanner or a real-time exchange feed.
 
-> 这是 OpenAshare 微信群活码，欢迎扫码加入。
+## What you can do
 
-> 重要提示：本项目仅用于研究、学习和工具搭建，不构成投资建议。市场有风险，所有决策请自行负责。
+- Search supported companies and symbols across the three markets.
+- Review historical price charts, technical indicators, and market context.
+- Follow company news and market themes where configured sources provide coverage.
+- Ask focused research questions and inspect retrieved sources, dates, and data gaps.
+- Compare selected SEC-reported financial facts for verified US issuers.
+- Track holdings, watchlists, portfolio observations, and research conversations.
+- Save reports and sources from the research workspace.
 
-## Star 增长
+The agent assists with research; it does not execute orders. For details on US company research and its evidence limits, see [US research notes](docs/pydantic-us-research.md).
 
-<p align="center">
-<a href="https://www.star-history.com/?repos=ZhiweiChen-coder%2FOpenAshare&amp;type=date&amp;legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ZhiweiChen-coder%2FOpenAshare&amp;type=date&amp;theme=dark&amp;legend=top-left&amp;sealed_token=HpUKzflqLwOmi67eMCYybI9lGl01IzvSWjiqKMPgdC37PERZdLpmKc3alJ8CIdAo5_khIL1j6w9boS1gijuX0clL7AzJ-oz7991mt1YVSWvweecFZhBeuHbG4DIbC3482rLAKnAwQq6TERx2vNWkJDVQq8f5r19BwMcvHK4GD4kVbb9-8CaSJO6bW1fl" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ZhiweiChen-coder%2FOpenAshare&amp;type=date&amp;legend=top-left&amp;sealed_token=HpUKzflqLwOmi67eMCYybI9lGl01IzvSWjiqKMPgdC37PERZdLpmKc3alJ8CIdAo5_khIL1j6w9boS1gijuX0clL7AzJ-oz7991mt1YVSWvweecFZhBeuHbG4DIbC3482rLAKnAwQq6TERx2vNWkJDVQq8f5r19BwMcvHK4GD4kVbb9-8CaSJO6bW1fl" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ZhiweiChen-coder%2FOpenAshare&amp;type=date&amp;legend=top-left&amp;sealed_token=HpUKzflqLwOmi67eMCYybI9lGl01IzvSWjiqKMPgdC37PERZdLpmKc3alJ8CIdAo5_khIL1j6w9boS1gijuX0clL7AzJ-oz7991mt1YVSWvweecFZhBeuHbG4DIbC3482rLAKnAwQq6TERx2vNWkJDVQq8f5r19BwMcvHK4GD4kVbb9-8CaSJO6bW1fl" />
- </picture>
-</a>
-</p>
+## Landing page demos
 
-曲线由 [Star History](https://star-history.com/#ZhiweiChen-coder/OpenAshare&Date) 提供，会随公开 Star 数据更新。点击图表可查看交互式历史；如果这个项目对你有帮助，点一颗 Star 会直接推动下一段曲线。
+The landing page includes three recorded research workflows:
 
-## 核心功能
+- **Company news:** look up recent NVIDIA headlines. [Watch the demo](public/marketing/demo-stock-questions.mp4).
+- **Chart research:** select a period on Micron's chart and ask about the move. [Watch the demo](public/marketing/demo-chart-research.mp4).
+- **Deep research:** investigate a biotech theme and follow the evidence into related companies. [Watch the demo](public/marketing/demo-deep-research.mp4).
 
-- **行情与技术分析**：K 线、指标、信号和市场状态
-- **新闻与热点**：个股新闻、市场消息和关联标的
-- **Agent 研究**：基于股票、新闻和组合上下文持续追问
-- **持仓与监控**：组合盈亏、风险分析、观察清单和策略跟踪
+The landing page serves H.264 MP4s and matching poster images from `public/marketing/`. Raw MOV source recordings are local files and are excluded from Git and deployment uploads.
 
-## 产品一览
-
-| Agent 研究台 | 图表与技术面 |
-| --- | --- |
-| ![Agent 工作台](assets/screenshots/agent-research-beta.png) | ![OpenAshare 全屏图表](public/marketing/openashare-beta-chart.png) |
-
-### 研究工作台与 Agent
-
-- 股票名称 / 代码搜索，行情快照、技术指标和 AI insight 同屏展示
-- 跨页面统一的研究问答入口，支持会话上下文与工具调用进度
-- 可调取个股、热点、新闻和组合信息；智能引擎不可用时回退到规则分析
-- 盘前、盘中、午间、盘后不同研究节奏提示
-
-### 市场、热点与图表
-
-- A 股、港股与美股统一搜索；A 股研究数据以 Ashare / AkShare 为主，港股支持如 `00700.HK`
-- 个股新闻、市场消息、热点聚合、热度分数与关联标的
-- K 线、技术指标、信号和市场状态（risk-on / neutral / risk-off）辅助判断
-
-### 持仓与策略
-
-- 本地组合、成本与数量管理
-- 组合盈亏、集中度风险、再平衡建议与观察清单
-- 策略候选筛选、状态跟踪与复盘提示
-
-## 架构
+## Architecture
 
 ```mermaid
 flowchart LR
-  User["研究者 / 交易复盘"] --> UI["Next.js App Router"]
-  UI --> API["FastAPI 服务层"]
-  API --> Stock["股票分析服务"]
-  API --> News["新闻与热点服务"]
-  API --> Portfolio["组合与策略服务"]
-  API --> Agent["Agent 编排"]
-  Stock --> AkShare["AkShare / pandas"]
-  Portfolio --> SQLite["SQLite 本地数据"]
-  Agent --> LLM["OpenAI-compatible LLM"]
+  User[Researcher] --> Web[Next.js App Router]
+  Web --> API[FastAPI services]
+  API --> Prices[Market data and charts]
+  API --> News[News and themes]
+  API --> Portfolio[Portfolio and watchlists]
+  API --> Agent[Research agent and evidence]
+  Prices --> CN[Ashare / AkShare]
+  Prices --> USHK[Yahoo Finance / optional Finnhub]
+  Agent --> SEC[SEC public filing data]
+  Agent --> Model[Configured OpenAI-compatible model]
 ```
 
-## 技术栈
+## Technology
 
-- **Frontend**：Next.js App Router、React 19、TypeScript、lightweight-charts
-- **Backend**：FastAPI、Pydantic、SSE progress events
-- **Data & Analysis**：AkShare、pandas、自定义技术分析与策略服务
-- **Storage**：SQLite、本地 JSON 设置文件
-- **AI**：可配置 base URL、model 和 API key 的 OpenAI-compatible API
+- **Frontend:** Next.js App Router, React, TypeScript, and `lightweight-charts`
+- **Backend:** FastAPI, Pydantic, and server-sent event progress updates
+- **Research:** PydanticAI, public SEC data, provider-backed news and market search
+- **Storage:** SQLite and local browser settings; optional Supabase workspace integration
+- **Markets:** Ashare / AkShare, Yahoo Finance, and optional Finnhub
 
-## 快速开始
+## Run locally
 
-### 环境要求
+### Requirements
 
-- Python 3.12+
-- Node.js 20+
+- Python 3.12 or later
+- Node.js 20–22
 - npm
 
-### 1. 安装依赖
+### 1. Install dependencies
 
 ```bash
 python3 -m venv .venv
@@ -137,100 +98,90 @@ pip install -r requirements_api.txt
 npm install
 ```
 
-如需旧分析链路或更多本地分析能力，再安装：
+The full `requirements.txt` includes additional legacy analysis dependencies. Install it only if you need those modules:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 配置模型（可选）
+### 2. Configure optional services
 
-在项目根目录创建 `.env`。没有模型配置时，部分 Agent 能力会回退到规则分析路径。
+Create an ignored `.env` file in the project root. The app can run without an AI model, but agent features may be limited to the available deterministic research paths.
 
 ```env
 LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://api.deepseek.com
-LLM_MODEL=deepseek-chat
-MONITOR_DB_PATH=./data/monitor.db
+LLM_MODEL=your_model_name
+
+# Required for SEC company research; use an application name and contact email.
+SEC_USER_AGENT=OpenAshare research contact@example.com
+
+# Optional US news and quote fallback.
+FINNHUB_API_KEY=
+
+# Optional online stock-search autocomplete.
+EASTMONEY_TOKEN=
 ```
 
-如需东方财富在线股票搜索补全，可配置 `EASTMONEY_TOKEN`；请勿提交真实 token。
+For optional cloud authentication and workspace persistence, configure the Supabase variables documented in `.env.docker.example`. Keep secret and service-role keys on the server; never commit credentials.
 
-### 3. 启动 API 与前端
+### 3. Start the API and web app
 
-默认端口：
+In separate terminals:
 
 ```bash
 ./scripts/run_api.sh      # http://127.0.0.1:8000
 npm run dev               # http://127.0.0.1:3000
 ```
 
-如果已有服务占用 `8000` / `3000`，可并行启动一套开发实例：
-
-```bash
-API_PORT=8001 ./scripts/run_api.sh
-```
-
-然后创建 `.env.local`：
+If the API uses a different port, set `NEXT_PUBLIC_API_BASE_URL` in `.env.local` and restart Next.js:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001
 ```
 
-重启 Next.js 后运行：
-
 ```bash
+API_PORT=8001 ./scripts/run_api.sh
 npm run dev -- -p 3001
 ```
 
-## 页面
+## Main routes
 
-- `/`：中英文产品首页与云端 Beta 入口
-- `/work`：研究工作台与 Agent 主入口（`/agent` 会跳转至此）
-- `/stocks`：股票搜索与单股分析
-- `/charts`：K 线图与技术指标
-- `/news`：市场消息与个股新闻
-- `/hotspots`：热点主题与关联标的
-- `/portfolio`：持仓、组合风险与策略复盘
-- `/settings`：模型与服务配置
+- `/` — redirects to the English landing page by default; a saved language choice is respected
+- `/landing` — product overview and research journal
+- `/journal/biotech-headline` and `/journal/ai-chip-cycle` — standalone research articles
+- `/work` — research workspace and agent
+- `/stocks` and `/charts` — stock search, analysis, and charts
+- `/news` and `/hotspots` — news and market themes
+- `/portfolio` — holdings and portfolio research
+- `/settings` — language, default market, research depth, and workspace settings
 
-## 项目结构
+Use `?lang=zh` or the language switcher to view the interface in Simplified Chinese. New research reports follow the selected language; saved reports keep their original wording.
+
+## Project structure
 
 ```text
 .
-├── api/          # FastAPI 入口、schemas、SSE 与服务编排
-├── app/          # Next.js App Router 页面
-├── components/   # 前端 UI 组件
-├── lib/          # 前端 API client、共享类型和工具
-├── ashare/       # 分析引擎、行情搜索、监控与数据模块
-├── scripts/      # 本地启动脚本
-├── tests/        # API 与搜索相关测试
-└── assets/       # 产品截图与其他资源
+├── api/          # FastAPI routes, schemas, research services, and SSE
+├── app/          # Next.js App Router pages
+├── components/   # Frontend interface and workspace components
+├── lib/          # API client, shared types, localization, and utilities
+├── ashare/       # Market data, analysis, search, and monitoring
+├── scripts/      # Local run and research scripts
+├── tests/        # Backend and frontend behavior tests
+└── assets/       # Product screenshots and media
 ```
 
-## 验证
+## Validation
 
 ```bash
 python -m pytest tests/test_api_app.py -q
 npm run build
 ```
 
-## Roadmap
+## Contributing
 
-- 云端 Beta 的登录申请与反馈闭环
-- 更多中国 / 香港市场数据源、缓存策略与引用追踪
-- 回测、交易日历与策略绩效面板
-- 更细颗粒度的 Agent 工具调用、引用与研究记忆
-- 团队协作、权限和一键部署模板
-
-## 贡献
-
-欢迎 Issue、Discussion 和 Pull Request。提交前请注意：
-
-- 优先提交小而聚焦的改动
-- API contract 变更时同步更新 `api/schemas.py` 与 `lib/types.ts`
-- 不提交真实 API key、私有配置或机器本地文件
-- 保持产品主线：股票分析、新闻、热点、持仓、策略和 Agent 对话
+Issues, discussions, and pull requests are welcome. Keep changes focused, update `api/schemas.py` and `lib/types.ts` together when API contracts change, and never commit API keys or machine-specific configuration.
 
 ## License
 

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AdminWaitlistClient } from "./admin-waitlist-client";
 
 export const metadata: Metadata = {
-  title: "等待名单管理 | OpenAshare",
+  title: "Waitlist administration | OpenAshare",
   robots: { index: false, follow: false },
 };
 

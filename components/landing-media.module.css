@@ -42,64 +42,6 @@
   opacity: 0.7;
 }
 
-.chromeBar,
-.statusBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.chromeBar {
-  min-height: 34px;
-  padding: 0 9px 0 5px;
-  border-radius: 7px 7px 0 0;
-  background: var(--ink);
-  color: rgba(255, 250, 241, 0.68);
-  font-size: 0.58rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.trafficLights {
-  display: flex;
-  gap: 5px;
-}
-
-.trafficLights span {
-  display: block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #be5b36;
-}
-
-.trafficLights span:nth-child(2) {
-  background: #d29a4b;
-}
-
-.trafficLights span:nth-child(3) {
-  background: #0f8a7b;
-}
-
-.chromePath {
-  overflow: hidden;
-  flex: 1;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.liveMark {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #d6eee8;
-  white-space: nowrap;
-}
-
-.liveMark i,
 .signal {
   display: block;
   width: 6px;
@@ -112,8 +54,7 @@
 .viewport {
   overflow: hidden;
   border: 1px solid rgba(18, 16, 13, 0.18);
-  border-top: 0;
-  border-radius: 0 0 7px 7px;
+  border-radius: 7px;
   background: #171714;
 }
 
@@ -260,21 +201,6 @@
   font-weight: 500;
 }
 
-.statusBar {
-  min-height: 28px;
-  padding: 0 8px;
-  color: rgba(255, 250, 241, 0.58);
-  background: var(--ink);
-  font-size: 0.54rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.statusBar span:last-child {
-  color: #9bd2c7;
-}
-
 .srOnly {
   position: absolute;
   width: 1px;
@@ -313,14 +239,6 @@
   .panel {
     padding: 8px;
     transform: none;
-  }
-
-  .chromePath {
-    font-size: 0.5rem;
-  }
-
-  .liveMark {
-    display: none;
   }
 
   .overlayNote {

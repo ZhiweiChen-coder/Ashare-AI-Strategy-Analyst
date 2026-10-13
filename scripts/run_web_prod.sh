@@ -13,7 +13,7 @@ if [ -f "$ROOT_DIR/.env" ]; then
   set +a
 fi
 
-HOSTNAME="${WEB_HOSTNAME:-${HOSTNAME:-127.0.0.1}}"
+HOSTNAME="${WEB_HOSTNAME:-0.0.0.0}"
 PORT="${WEB_PORT:-${PORT:-3000}}"
 
 exec npm run start -- --hostname "$HOSTNAME" --port "$PORT"

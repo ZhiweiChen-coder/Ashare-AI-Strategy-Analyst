@@ -1,11 +1,13 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import hashlib
 import asyncio
 import json
 import logging
 import os
+import re
 import sqlite3
+import time
 import uuid
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
@@ -22,10 +24,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.schemas import (
+    WatchlistSnapshot, WatchlistInitialize, WatchlistMutation, WatchlistResult,
     AnalysisProgressResponse,
     AgentProgressEvent,
     AgentHistoryTurn,
     AgentQuery,
+    AgentResearchCapabilities,
     AgentResponse,
     CreditBalanceResponse,
     GlobalNewsItem,
@@ -53,7 +57,8 @@ from api.credits import (
     estimate_request_cost,
     final_request_cost,
 )
-from api.sse import encode_sse, sse_response
+from api.sse import encode_sse, iter_committed_summary, sse_response
+from api.watchlist import LocalWatchlistStore, CloudWatchlistStore
 from api.settings_store import UserSettingsStore
 from api.supabase_auth import require_supabase_user
 from api.supabase_config import SupabaseConfig
@@ -69,7 +74,9 @@ from api.services import (
     StrategyService,
     WebSearchService,
 )
-from api.agent_pydantic import AgentDeps, create_agent, run_agent_async
+from api.agent_pydantic import AgentDeps, create_agent, run_agent_async, UsageLimitExceeded
+from api.comparison_research import is_broad_stock_comparison
+from api.localization import resolve_language, localize_market, localize_stock_analysis, localize_fallback, localize_portfolio
 from ashare.config import PROJECT_ROOT
 
 settings_store = UserSettingsStore(PROJECT_ROOT / "data" / "user_settings.json")
@@ -83,6 +90,7 @@ web_search_service = WebSearchService()
 agent_service = AgentService(stock_service, news_service, hotspot_service, portfolio_service, web_search_service)
 supabase_config = SupabaseConfig.from_env()
 credit_service = CreditService(supabase_config)
+workspace_watchlist_store = LocalWatchlistStore(PROJECT_ROOT / "data" / "workspace_watchlist.db")
 
 
 class CloudRateLimiter:
@@ -116,6 +124,25 @@ cloud_rate_limiter = CloudRateLimiter()
 
 def _cloud_auth_enabled() -> bool:
     return supabase_config.enabled and supabase_config.require_auth
+
+
+def _agent_research_capabilities() -> AgentResearchCapabilities:
+    hosted = _cloud_auth_enabled() or os.getenv("OPENASHARE_PUBLIC_BETA", "").lower() == "true"
+    return AgentResearchCapabilities(
+        deep_available=not hosted,
+        deep_unavailable_reason="public_beta_suspended" if hosted else None,
+        deep_unavailable_message="Deep research is unavailable at the moment. Please use Quick research." if hosted else None,
+    )
+
+
+def _require_available_research_mode(payload: AgentQuery) -> None:
+    if payload.research_mode == "deep" and not _agent_research_capabilities().deep_available:
+        message = (
+            "深入研究暂时不可用，请使用快速研究。"
+            if resolve_language(payload.query, payload.language) == "zh-CN"
+            else "Deep research is unavailable at the moment. Please use Quick research."
+        )
+        raise HTTPException(status_code=503, detail=message)
 
 
 def _bounded_env_int(name: str, default: int, *, minimum: int, maximum: int) -> int:
@@ -343,7 +370,7 @@ async def enforce_hosted_beta_access(request: Request, call_next):
     """
 
     path = request.url.path
-    if request.method == "OPTIONS" or path in {"/health", "/healthz"} or not _cloud_auth_enabled():
+    if request.method == "OPTIONS" or path in {"/health", "/healthz"} or (request.method == "GET" and path == "/api/agent/capabilities") or not _cloud_auth_enabled():
         return await call_next(request)
 
     try:
@@ -765,6 +792,102 @@ def workspace_bootstrap(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail="Supabase workspace 暂时不可用。") from exc
 
 
+def _watchlist_store_for_request(request: Request):
+    # Local deployment disables required auth; configured cloud credentials alone
+    # must not force anonymous localhost users into an authenticated store.
+    if not supabase_config.enabled or (not supabase_config.require_auth and not request.headers.get("authorization")):
+        return workspace_watchlist_store
+    return CloudWatchlistStore(supabase_config, require_supabase_user(request, supabase_config))
+
+
+def _resolve_watchlist_stock(code: str) -> dict[str, Any]:
+    from ashare.stock_pool import normalize_stock_code
+    from api.sec import SecCompanyService
+    normalized = normalize_stock_code(code)
+    if normalized.upper().startswith("US."):
+        identity = SecCompanyService().resolve(normalized, [normalized])
+        matches = [row for row in identity.get("candidates", []) if row["code"].upper() == normalized.upper()]
+    else:
+        matches = [row.model_dump() for row in stock_service.search_stocks(normalized, max_results=5) if normalize_stock_code(row.code).upper() == normalized.upper()]
+    if len(matches) != 1:
+        raise ValueError("Company identity unavailable or ambiguous. Use an exact ticker and try again.")
+    return matches[0]
+
+
+@app.get("/api/workspace/watchlist", response_model=WatchlistSnapshot)
+def get_workspace_watchlist(request: Request):
+    try:
+        return _watchlist_store_for_request(request).get()
+    except SupabaseStoreError as error:
+        raise HTTPException(502, "Watchlist storage unavailable.") from error
+
+
+@app.post("/api/workspace/watchlist/initialize", response_model=WatchlistSnapshot)
+def initialize_workspace_watchlist(request: Request, payload: WatchlistInitialize):
+    try:
+        return _watchlist_store_for_request(request).initialize([item.model_dump() for item in payload.items])
+    except (SupabaseStoreError, ValueError) as error:
+        raise HTTPException(502, "Watchlist storage unavailable.") from error
+
+
+@app.post("/api/workspace/watchlist", response_model=WatchlistResult)
+def update_workspace_watchlist(request: Request, payload: WatchlistMutation):
+    store = _watchlist_store_for_request(request)
+    try:
+        item = _resolve_watchlist_stock(payload.code) if payload.action == "add" else {"code": payload.code, "name": ""}
+        return store.mutate(payload.action, item["code"], item["name"])
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+    except Exception as error:
+        raise HTTPException(502, "Watchlist storage or identity verification unavailable. Please try again.") from error
+
+
+async def _explicit_watchlist_request(payload: AgentQuery, store, report=None):
+    """Simple workspace commands need no model call. Compound research stays agentic."""
+    from api.agent_pydantic import AgentOutput, build_agent_response, execute_watchlist
+    query = payload.query.strip().rstrip("?？.!。")
+    match = re.fullmatch(r"(?:please\s+)?(add|remove)\s+([\w.-]+)\s+(?:to|from)\s+(?:my |the )?watchlist", query, re.I)
+    chinese = re.fullmatch(r"(?:请)?(?:把|将)?\s*([\w.-]+)\s*(加入|添加到|移出|移除)\s*(?:我的)?(?:自选股|自选|关注列表)", query)
+    action, code = (match[1].lower(), match[2]) if match else (("add" if chinese[2] in {"加入", "添加到"} else "remove"), chinese[1]) if chinese else ("", "")
+    if re.fullmatch(r"(?:show|list)(?: me)?(?: my| the)? watchlist|(?:查看|显示)(?:我的)?(?:自选股|自选|关注列表)", query, re.I):
+        action = "list"
+    if not action:
+        return None
+    deps = _build_agent_deps()
+    deps.watchlist_store = store
+    deps.language = resolve_language(payload.query, payload.language)
+    deps.progress_callback = report
+    en = deps.language == "en-US"
+    if action == "add":
+        try:
+            deps.report("tool_running", 30, "Verifying company", {"tool": "search_stocks"})
+            item = await asyncio.to_thread(_resolve_watchlist_stock, code)
+            code = item["code"]
+            deps.record_tool({"tool": "search_stocks", "data": [item]})
+            if code.upper().startswith("US."):
+                deps.verified_us_codes.add(code.upper())
+            deps.report("tool_completed", 40, "Company verified", {"tool": "search_stocks"})
+        except Exception:
+            return AgentResponse(intent="watchlist", summary="Company identity could not be verified; your watchlist was not changed." if en else "未能核验公司身份，自选股未变更。")
+    await execute_watchlist(deps, action, code)
+    last = deps.tool_results[-1]
+    result = last.get("data", {})
+    if last.get("status") == "unavailable":
+        summary = ("Watchlist could not be saved. " if en else "自选股保存失败。") + result.get("message", "")
+    elif action == "list":
+        summary = ("Your watchlist" if en else "你的自选股") + ": " + (", ".join(f"{v['name']} ({v['code']})" for v in result["items"]) or ("Empty." if en else "暂无。"))
+    else:
+        changed = result["changed"]
+        name = result["stock_name"]
+        summary = (f"Added {name} ({result['stock_code']}) to your watchlist." if changed else f"{name} ({result['stock_code']}) is already in your watchlist.") if action == "add" else (f"Removed {result['stock_code']} from your watchlist." if changed else f"{result['stock_code']} is not in your watchlist.")
+        if not en:
+            summary = f"{'已添加' if changed else '已在自选股中'} {name}（{result['stock_code']}）。" if action == "add" else f"{'已移除' if changed else '自选股中没有'} {result['stock_code']}。"
+    response = build_agent_response(AgentOutput(summary=summary), deps.tool_results, deps.language)
+    response.intent = "watchlist"
+    response.payload["_meta"].update(engine="deterministic", usage={"requests": 0, "input_tokens": 0, "output_tokens": 0}, estimated_cost_usd=0)
+    return response
+
+
 @app.get("/api/billing/balance", response_model=CreditBalanceResponse)
 async def billing_balance(request: Request) -> CreditBalanceResponse:
     try:
@@ -836,14 +959,16 @@ def search_stocks(
 def get_stock_analysis(
     request: Request,
     stock_code: str,
-    include_ai: bool = Query(True, description="是否生成 AI 文本分析，默认开启"),
-    request_id: Optional[str] = Query(None, description="用于跟踪单次分析进度的请求 ID"),
+    include_ai: bool = Query(True, description="Generate AI commentary; enabled by default."),
+    request_id: Optional[str] = Query(None, description="Request ID used to track analysis progress."),
+    language: str = Query("en-US", pattern="^(en-US|zh-CN)$"),
 ) -> Response:
     try:
         if request_id:
             payload = stock_service.get_stock_analysis(stock_code, include_ai=include_ai, request_id=request_id)
         else:
             payload = stock_service.get_stock_analysis(stock_code, include_ai=include_ai)
+        payload = localize_stock_analysis(payload, language)
         return _cached_json_response(
             request,
             payload,
@@ -870,7 +995,7 @@ def get_stock_analysis(
 async def stream_stock_analysis(
     request: Request,
     stock_code: str,
-    include_ai: bool = Query(True, description="是否生成 AI 文本分析，默认开启"),
+    include_ai: bool = Query(True, description="Generate AI commentary; enabled by default."),
 ):
     queue: asyncio.Queue[str | None] = asyncio.Queue()
     loop = asyncio.get_running_loop()
@@ -997,9 +1122,9 @@ def list_hotspots(request: Request, limit: int = Query(10, ge=1, le=20)) -> Resp
 
 
 @app.get("/api/news/global", response_model=List[GlobalNewsItem])
-def list_global_news(request: Request, limit: int = Query(20, ge=1, le=50)) -> Response:
+def list_global_news(request: Request, limit: int = Query(20, ge=1, le=50), market: str = Query("global", pattern="^(global|us)$")) -> Response:
     try:
-        payload = news_service.get_global_news(limit=limit)
+        payload = news_service.get_global_news(limit=limit) if market == "global" else news_service.get_global_news(limit=limit, market=market)
         return _cached_json_response(
             request,
             payload,
@@ -1028,10 +1153,11 @@ def get_hotspot_detail(request: Request, topic_name: str) -> Response:
 
 
 @app.get("/api/market-regime", response_model=MarketRegimeResponse)
-def get_market_regime(request: Request) -> Response:
+def get_market_regime(request: Request, market: str = Query("a_share", pattern="^(a_share|us|hk)$"), language: str = Query("en-US", pattern="^(en-US|zh-CN)$")) -> Response:
     try:
-        payload = market_service.get_market_regime()
-        return _cached_json_response(request, payload, max_age=45, stale_while_revalidate=90)
+        payload = market_service.get_market_regime() if market == "a_share" else market_service.get_market_regime(market)
+        payload = localize_market(payload, language)
+        return _cached_json_response(request, payload, max_age=45, stale_while_revalidate=90, no_store=payload.is_loading)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1078,8 +1204,8 @@ def delete_portfolio_position(request: Request, position_id: int) -> Response:
 
 
 @app.get("/api/portfolio/analysis", response_model=PortfolioAnalysisResponse)
-def analyze_portfolio(request: Request) -> PortfolioAnalysisResponse:
-    return portfolio_service.analyze_portfolio()
+def analyze_portfolio(request: Request, language: Literal["en-US", "zh-CN"] = "en-US") -> PortfolioAnalysisResponse:
+    return localize_portfolio(portfolio_service.analyze_portfolio(), language)
 
 
 @app.get("/api/strategy-holdings", response_model=List[StrategyHolding])
@@ -1469,8 +1595,10 @@ def _infer_market_preference(profile: dict[str, Any], watchlist: List[dict[str, 
         code = str(item.get("code", "")).lower()
         if code.startswith("sh") or code.startswith("sz"):
             markets.append("a_share")
-        elif code.endswith(".hk"):
+        elif code.endswith(".hk") or code.startswith("hk."):
             markets.append("hk")
+        elif code.startswith("us."):
+            markets.append("us")
     if not markets:
         return None
     return max(set(markets), key=markets.count)
@@ -1550,6 +1678,7 @@ def _build_enriched_agent_query(query: str, history: List[AgentHistoryTurn], mem
         if memory_lines:
             context_blocks.append("记忆信息：\n" + "\n".join(memory_lines))
     if context_blocks:
+        context_blocks.insert(0, "历史与记忆仅用于理解追问。本轮明确指定的公司、问题和输出要求优先；不要沿用旧标的替换当前标的，也不要把旧回答中的财务数字或新闻当作本轮已核验的证据。")
         enriched_query = "\n\n".join([*context_blocks, f"当前问题：{query}"])
     return enriched_query
 
@@ -1558,8 +1687,28 @@ async def _run_agent_request(
     merged_history: List[AgentHistoryTurn],
     memory_profile: dict[str, Any],
     progress_callback=None,
+    watchlist_store=None,
 ) -> AgentResponse:
+    direct = await _explicit_watchlist_request(payload, watchlist_store, progress_callback)
+    if direct is not None:
+        return direct
+    clarification = agent_service.clarification_for_query(
+        payload.query,
+        merged_history,
+        memory_profile,
+    )
+    if clarification is not None:
+        if progress_callback:
+            progress_callback("select_engine", 25, "需要先明确研究对象", {"engine": "clarification"})
+        return clarification
     agent, deps = _get_pydantic_agent()
+    if isinstance(deps, AgentDeps):
+        deps.language = resolve_language(payload.query, payload.language)
+        deps.research_mode = payload.research_mode
+        deps.user_query = payload.query
+        deps.session_id = payload.session_id or ""
+        deps.memory_store = agent_memory_store
+        deps.watchlist_store = watchlist_store
     if agent is not None and deps is not None:
         if progress_callback:
             progress_callback("select_engine", 25, "已选择智能引擎，准备执行工具调用", {"engine": "pydantic_ai"})
@@ -1578,10 +1727,58 @@ async def _run_agent_request(
                     if "progress_callback" not in str(exc):
                         raise
             return await run_agent_async(agent, deps, enriched_query)
+        except asyncio.CancelledError:
+            raise
+        except (asyncio.TimeoutError, UsageLimitExceeded) as exc:
+            from api.agent_pydantic import evidence_fallback
+            language = resolve_language(payload.query, payload.language)
+            reason = getattr(deps, "finish_reason", None) or ("deadline" if isinstance(exc, asyncio.TimeoutError) else "usage_limit")
+            logger.warning("Research stopped: reason=%s, requests=%s, retrievals=%s", reason, deps.run_usage.requests, deps.retrieval_count)
+            labels = {"deadline": ("time", "时间"), "request_limit": ("model-request", "模型请求次数"), "token_limit": ("token", "Token"), "unresolved_provider_usage": ("unresolved provider usage", "未核实的模型用量")}
+            label = labels.get(reason, ("usage", "用量"))[0 if language == "en-US" else 1]
+            message = f"Research reached its {label} limit. The source records below are available; the interpretation is incomplete." if language == "en-US" else f"研究达到{label}限制。下方保留已获取的来源记录，解读尚未完成。"
+            response = evidence_fallback(deps, message)
+            response.intent = "error"
+            response.payload["_meta"].update(engine="pydantic_ai", limit_reached=True, limit_reason=reason)
+            if isinstance(deps, AgentDeps):
+                usage = deps.run_usage
+                response.payload["_meta"].update(
+                    retrieval_calls=deps.retrieval_count,
+                    usage={"requests": usage.requests, "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens},
+                )
+                from api.research_runs import save_run
+                response.payload["_meta"].update(save_run(deps, "incomplete", type(exc).__name__, response=response))
+            return response
         except BaseException as exc:
             if isinstance(exc, (SystemExit, KeyboardInterrupt)):
                 raise
-            logger.exception("PydanticAI agent run failed, falling back to deterministic agent")
+            logger.exception("PydanticAI research synthesis stopped")
+            if isinstance(deps, AgentDeps):
+                from api.agent_pydantic import evidence_fallback
+                from api.company_research import collect_company_evidence, company_from_question
+                language = deps.language
+                # If a provider/validation failure happened before retrieval,
+                # attempt bounded source-only recovery, never another paid turn.
+                if (not is_broad_stock_comparison(payload.query)
+                        and not any(item.get("evidence") and item["tool"] != "search_stocks" for item in deps.tool_results)):
+                    try:
+                        await asyncio.wait_for(collect_company_evidence(deps, company_from_question(payload.query), "catalysts"), timeout=25)
+                    except (Exception, asyncio.TimeoutError):
+                        pass
+                    finally:
+                        pending = list(deps.retrieval_tasks.values())
+                        for task in pending:
+                            task.cancel()
+                        if pending:
+                            await asyncio.gather(*pending, return_exceptions=True)
+                message = "The comparison synthesis did not finish. This is a partial, two-company evidence snapshot." if language == "en-US" else "比较汇总未能完成；以下仅列出两家公司的部分证据。"
+                if not is_broad_stock_comparison(payload.query):
+                    message = "Research synthesis could not finish. Available sources are preserved below." if language == "en-US" else "研究汇总未能完成，已获取的来源保留在下方。"
+                response = evidence_fallback(deps, message)
+                response.payload["_meta"]["failure_type"] = type(exc).__name__
+                from api.research_runs import save_run
+                response.payload["_meta"].update(save_run(deps, "incomplete", type(exc).__name__, response=response))
+                return response
             if progress_callback:
                 progress_callback("select_engine", 30, "智能引擎失败，切换到规则分析", {"engine": "deterministic"})
     elif progress_callback:
@@ -1589,27 +1786,36 @@ async def _run_agent_request(
 
     if progress_callback is not None:
         try:
-            return await asyncio.to_thread(
+            fallback = await asyncio.to_thread(
                 agent_service.query,
                 payload.query,
                 merged_history,
                 memory_profile,
                 progress_callback,
             )
+            return localize_fallback(fallback, resolve_language(payload.query, payload.language))
         except TypeError as exc:
             if "positional argument" not in str(exc) and "given" not in str(exc):
                 raise
-    return await asyncio.to_thread(
+    fallback = await asyncio.to_thread(
         agent_service.query,
         payload.query,
         merged_history,
         memory_profile,
     )
+    return localize_fallback(fallback, resolve_language(payload.query, payload.language))
+
+
+@app.get("/api/agent/capabilities", response_model=AgentResearchCapabilities)
+def agent_research_capabilities() -> AgentResearchCapabilities:
+    """Public availability metadata only; no user data, credits or model calls."""
+    return _agent_research_capabilities()
 
 
 @app.post("/api/agent/query")
 async def agent_query(request: Request, payload: AgentQuery) -> Response:
-    """Always return 200 + JSON. Never 500 - errors go in body."""
+    """Validate mode before accounting; research execution returns a JSON result."""
+    _require_available_research_mode(payload)
     estimated_amount = estimate_request_cost(payload.query)
     request_id = payload.request_id or str(uuid.uuid4())
     try:
@@ -1628,7 +1834,9 @@ async def agent_query(request: Request, payload: AgentQuery) -> Response:
     try:
         merged_history = _merge_agent_history(payload)
         memory_profile = agent_memory_store.get_profile(payload.session_id or "")
-        resp = await _run_agent_request(payload, merged_history, memory_profile)
+        work_started = time.monotonic()
+        resp = await _run_agent_request(payload, merged_history, memory_profile, watchlist_store=_watchlist_store_for_request(request))
+        resp.payload.setdefault("_meta", {}).setdefault("latency_seconds", round(time.monotonic() - work_started, 3))
         actual_amount = final_request_cost(resp.intent)
         settlement = await asyncio.to_thread(
             credit_service.settle,
@@ -1673,6 +1881,7 @@ async def agent_query(request: Request, payload: AgentQuery) -> Response:
 
 @app.post("/api/agent/query/stream")
 async def agent_query_stream(request: Request, payload: AgentQuery) -> Response:
+    _require_available_research_mode(payload)
     estimated_amount = estimate_request_cost(payload.query)
     request_id = payload.request_id or str(uuid.uuid4())
     try:
@@ -1713,6 +1922,10 @@ async def agent_query_stream(request: Request, payload: AgentQuery) -> Response:
             )
 
             def report(stage: str, progress_pct: int, message: str, meta: Optional[dict[str, Any]] = None) -> None:
+                # Older runtimes may still send drafts. The public stream only
+                # publishes the canonical response after assembly and storage.
+                if stage == "answer_delta":
+                    stage, message, meta = "check_facts", "正在核对事实与来源", {}
                 _emit_agent_progress(
                     queue,
                     loop,
@@ -1723,7 +1936,9 @@ async def agent_query_stream(request: Request, payload: AgentQuery) -> Response:
                     meta=meta,
                 )
 
-            resp = await _run_agent_request(payload, merged_history, memory_profile, report)
+            work_started = time.monotonic()
+            resp = await _run_agent_request(payload, merged_history, memory_profile, report, watchlist_store=_watchlist_store_for_request(request))
+            resp.payload.setdefault("_meta", {}).setdefault("latency_seconds", round(time.monotonic() - work_started, 3))
             actual_amount = final_request_cost(resp.intent)
             settlement = await asyncio.to_thread(
                 credit_service.settle,
@@ -1744,6 +1959,10 @@ async def agent_query_stream(request: Request, payload: AgentQuery) -> Response:
             report("persist_memory", 95, "会话记忆已更新")
             heartbeat = _maybe_run_heartbeat(payload.session_id)
             resp = _attach_memory_profile(resp, agent_memory_store.get_profile(payload.session_id or ""), heartbeat)
+            report("publish_answer", 98, "正在呈现回答")
+            async for delta in iter_committed_summary(resp.summary):
+                _emit_agent_progress(queue, loop, kind="token", stage="answer_delta",
+                    progress_pct=98, message="", meta={"delta": delta, "provisional": False})
             _emit_agent_progress(
                 queue,
                 loop,
@@ -1784,5 +2003,5 @@ async def agent_query_stream(request: Request, payload: AgentQuery) -> Response:
             # be consumed before the queued result/done events.
             loop.call_soon_threadsafe(queue.put_nowait, None)
 
-    asyncio.create_task(runner())
-    return sse_response(queue)
+    task = asyncio.create_task(runner())
+    return sse_response(queue, task)

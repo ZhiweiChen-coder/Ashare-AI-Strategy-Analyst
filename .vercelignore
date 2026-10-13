@@ -11,3 +11,17 @@
 /data/
 /logs/
 /*.py
+
+# Local runtimes, credentials, raw recordings and generated evaluation artifacts.
+/.env
+/.env.*
+/.venv/
+/venv/
+/node_modules/
+/.next/
+/.next-dev/
+/output/
+/assets/screenshots/
+/.pytest_cache/
+/.ruff_cache/
+**/__pycache__/

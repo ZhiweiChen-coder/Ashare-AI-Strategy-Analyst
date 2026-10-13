@@ -208,10 +208,10 @@ def test_deepseek_profile_avoids_required_tool_choice(monkeypatch):
     )
     profile = _profile_for_model(provider, "deepseek-v4-flash", "https://api.deepseek.com")
 
-    assert profile.openai_supports_tool_choice_required is False
-    assert profile.openai_supports_strict_tool_definition is False
-    assert profile.openai_chat_thinking_field == "reasoning_content"
-    assert profile.openai_chat_send_back_thinking_parts == "field"
+    assert profile["supports_forced_tool_choice"] is False
+    assert profile["openai_supports_strict_tool_definition"] is False
+    assert profile["openai_chat_thinking_field"] == "reasoning_content"
+    assert profile["openai_chat_send_back_thinking_parts"] == "field"
 
     monkeypatch.delenv("LLM_THINKING_MODE", raising=False)
     assert _settings_for_model("deepseek-v4-flash", "https://api.deepseek.com") == {
@@ -220,11 +220,14 @@ def test_deepseek_profile_avoids_required_tool_choice(monkeypatch):
 
 
 def test_agent_query_stream_emits_result_before_done(monkeypatch):
+    saved_durations = []
     async def fake_run_agent_request(*args, **kwargs):
-        return AgentResponse(intent="test", summary="测试回答", payload={})
+        args[3]("answer_delta", 80, "", {"delta": "rejected draft must stay private", "reset": True, "provisional": True})
+        args[3]("answer_delta", 80, "", {"delta": "another draft", "reset": True, "provisional": True})
+        return AgentResponse(intent="test", summary="测试回答" * 100, payload={})
 
     monkeypatch.setattr("api.main._run_agent_request", fake_run_agent_request)
-    monkeypatch.setattr("api.main._persist_agent_turns", lambda *args, **kwargs: None)
+    monkeypatch.setattr("api.main._persist_agent_turns", lambda session_id, query, result: saved_durations.append(result.payload['_meta']['latency_seconds']))
     monkeypatch.setattr("api.main._maybe_run_heartbeat", lambda *args, **kwargs: None)
 
     with client.stream(
@@ -242,8 +245,20 @@ def test_agent_query_stream_emits_result_before_done(monkeypatch):
         if line.startswith("event:")
     ]
     assert "result" in event_names
+    assert "token" in event_names
     assert "done" in event_names
     assert event_names.index("result") < event_names.index("done")
+    assert event_names.index("token") < event_names.index("result")
+    blocks = [json.loads(block.split('data: ', 1)[1]) for block in body.split('\n\n') if 'data: ' in block]
+    tokens = [block['meta'] for block in blocks if block['kind'] == 'token']
+    result = next(block['payload'] for block in blocks if block['kind'] == 'result')
+    assert result['payload']['_meta']['latency_seconds'] >= 0
+    assert saved_durations == [result['payload']['_meta']['latency_seconds']]
+    assert len(tokens) > 1
+    assert all(token['provisional'] is False and not token.get('reset') for token in tokens)
+    assert ''.join(token['delta'] for token in tokens) == result['summary']
+    assert 'rejected draft' not in body and 'another draft' not in body
+    assert any(block['stage'] == 'check_facts' for block in blocks)
 
 
 def test_deterministic_agent_greeting_is_brief_and_tool_free():
@@ -259,14 +274,37 @@ def test_deterministic_agent_greeting_is_brief_and_tool_free():
     "query,expected_phrase",
     [
         ("这票怎么样？", "哪只股票"),
-        ("这个消息利好谁？", "哪条消息"),
+        ("这个消息利好谁？", "哪条新闻"),
+        ("帮我分析一下。", "研究哪一类内容"),
     ],
 )
 def test_deterministic_agent_clarifies_missing_object(query, expected_phrase):
     response = agent_service.query(query)
 
     assert response.intent == "clarification"
-    assert expected_phrase in response.summary
+    assert response.clarification is not None
+    assert expected_phrase in response.clarification.question
+    assert 2 <= len(response.clarification.options) <= 4
+    assert response.actions == []
+    assert response.payload["_meta"]["tools_used"] == []
+
+
+def test_ambiguous_query_returns_modal_before_live_model(monkeypatch):
+    def fail_if_model_is_loaded():
+        raise AssertionError("An ambiguous query should be clarified before any paid model request.")
+
+    monkeypatch.setattr(main_module, "_get_pydantic_agent", fail_if_model_is_loaded)
+    response = asyncio.run(
+        main_module._run_agent_request(
+            main_module.AgentQuery(query="帮我分析一下。", session_id="modal-preflight-test"),
+            [],
+            {},
+        )
+    )
+
+    assert response.intent == "clarification"
+    assert response.clarification is not None
+    assert response.clarification.question == "你想研究哪一类内容？"
     assert response.payload["_meta"]["tools_used"] == []
 
 
@@ -1193,6 +1231,8 @@ def test_warm_read_caches_calls_news_and_hotspots(monkeypatch):
 
 def test_agent_query_supports_chinese_stock_name(monkeypatch):
     agent_service._cache.clear()
+    # Exercise the deterministic resolver without using local model credentials.
+    monkeypatch.setattr("api.main._get_pydantic_agent", lambda: (None, None))
     monkeypatch.setattr(
         "api.main.agent_service.stock_service.get_stock_analysis",
         lambda code, include_ai=False: _make_stock_analysis(code, "中国海油", 4, "看涨", 28.6, 1.8),
@@ -1208,6 +1248,7 @@ def test_agent_query_supports_chinese_stock_name(monkeypatch):
 
 def test_agent_query_supports_chinese_alias_name(monkeypatch):
     agent_service._cache.clear()
+    monkeypatch.setattr("api.main._get_pydantic_agent", lambda: (None, None))
     monkeypatch.setattr(
         "api.main.agent_service.stock_service.get_stock_analysis",
         lambda code, include_ai=False: _make_stock_analysis(code, "中国海油", 4, "看涨", 28.6, 1.8),
@@ -1223,6 +1264,7 @@ def test_agent_query_supports_chinese_alias_name(monkeypatch):
 
 def test_agent_query_uses_history_for_sector_comparison(monkeypatch):
     agent_service._cache.clear()
+    monkeypatch.setattr("api.main._get_pydantic_agent", lambda: (None, None))
 
     def fake_get_stock_analysis(code, include_ai=False):
         fixtures = {
@@ -1288,8 +1330,9 @@ def test_agent_query_returns_candidates_for_low_confidence_stock_match(monkeypat
     assert payload["payload"]["candidates"][0]["code"] == "sh601012"
 
 
-def test_agent_query_returns_help_for_capability_questions():
+def test_agent_query_returns_help_for_capability_questions(monkeypatch):
     agent_service._cache.clear()
+    monkeypatch.setattr("api.main._get_pydantic_agent", lambda: (None, None))
     response = client.post("/api/agent/query", json={"query": "你能做什么", "session_id": "test-help"})
     assert response.status_code == 200
     payload = response.json()
@@ -1299,8 +1342,9 @@ def test_agent_query_returns_help_for_capability_questions():
     assert payload["payload"]["_meta"]["rewritten_query"] == "介绍当前支持的能力和示例用法"
 
 
-def test_agent_query_returns_model_info_for_model_question():
+def test_agent_query_returns_model_info_for_model_question(monkeypatch):
     agent_service._cache.clear()
+    monkeypatch.setattr("api.main._get_pydantic_agent", lambda: (None, None))
     response = client.post("/api/agent/query", json={"query": "你现在用的是什么模型", "session_id": "test-model-info"})
     assert response.status_code == 200
     payload = response.json()

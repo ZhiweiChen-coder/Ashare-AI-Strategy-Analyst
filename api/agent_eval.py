@@ -61,6 +61,7 @@ class EvalObservation:
     summary: str
     citations: list[str] = field(default_factory=list)
     tools_used: list[str] = field(default_factory=list)
+    structured_clarification: bool = False
     payload_keys: list[str] = field(default_factory=list)
     payload_search_text: str = field(default="", repr=False)
     error: Optional[str] = None
@@ -76,6 +77,14 @@ class EvalObservation:
         tools = sorted({canonical_tool(str(item)) for item in raw_tools if str(item).strip()})
         raw_citations = response.get("citations", [])
         citations = [str(item) for item in raw_citations] if isinstance(raw_citations, list) else []
+        raw_clarification = response.get("clarification")
+        options = raw_clarification.get("options") if isinstance(raw_clarification, Mapping) else None
+        structured_clarification = (
+            isinstance(raw_clarification, Mapping)
+            and bool(str(raw_clarification.get("question", "")).strip())
+            and isinstance(options, list)
+            and 2 <= len(options) <= 4
+        )
         raw_keys = payload.keys() if isinstance(payload, Mapping) else []
         intent = str(response.get("intent", ""))
         summary = str(response.get("summary", ""))
@@ -86,6 +95,7 @@ class EvalObservation:
             summary=summary,
             citations=citations,
             tools_used=tools,
+            structured_clarification=structured_clarification,
             payload_keys=sorted(str(key) for key in raw_keys if key != "_meta"),
             payload_search_text=json.dumps(payload, ensure_ascii=False, default=str),
             error=error,
@@ -115,6 +125,7 @@ class EvalResult:
             "status_code": self.observation.status_code,
             "intent": self.observation.intent,
             "tools_used": self.observation.tools_used,
+            "structured_clarification": self.observation.structured_clarification,
             "summary_chars": len(self.observation.summary),
             "citation_count": len(self.observation.citations),
             "payload_keys": self.observation.payload_keys,
@@ -191,10 +202,18 @@ def evaluate_case(case: EvalCase, observation: EvalObservation) -> EvalResult:
     if unexpected:
         failures.append(EvalFailure("forbidden_tools", f"unexpected tools: {', '.join(unexpected)}"))
 
-    if case.clarification is True and not _looks_like_clarification(observation.summary):
+    if (
+        case.clarification is True
+        and not observation.structured_clarification
+        and not _looks_like_clarification(observation.summary)
+    ):
         failures.append(EvalFailure("clarification", "response does not ask for the missing object or scope"))
+    if case.clarification is True and not observation.structured_clarification:
+        failures.append(EvalFailure("structured_clarification", "response does not provide modal question options"))
     if case.clarification is False and _looks_like_clarification(observation.summary):
         failures.append(EvalFailure("unnecessary_clarification", "response asks a follow-up question for a complete query"))
+    if case.clarification is False and observation.structured_clarification:
+        failures.append(EvalFailure("unnecessary_clarification", "response opens a clarification modal for a complete query"))
 
     if case.max_chars is not None and len(observation.summary) > case.max_chars:
         failures.append(EvalFailure("conciseness", f"summary has {len(observation.summary)} chars, limit is {case.max_chars}"))

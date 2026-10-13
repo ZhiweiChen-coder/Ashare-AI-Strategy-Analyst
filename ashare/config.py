@@ -71,7 +71,7 @@ def _env_list(name: str, default: List[str]) -> List[str]:
 class Config:
     llm_api_key: Optional[str] = field(default_factory=lambda: _env_text("LLM_API_KEY"))
     llm_base_url: str = field(default_factory=lambda: _env_text("LLM_BASE_URL", "https://api.deepseek.com") or "https://api.deepseek.com")
-    llm_model: str = field(default_factory=lambda: _env_text("LLM_MODEL", "deepseek-chat") or "deepseek-chat")
+    llm_model: str = field(default_factory=lambda: _env_text("LLM_MODEL", "deepseek-flash") or "deepseek-flash")
 
     # 约 5 年日 K，供全屏图表展示长期走势；可用 DATA_COUNT 覆盖。
     data_count: int = field(default_factory=lambda: _env_int("DATA_COUNT", 1250))
@@ -99,6 +99,10 @@ class Config:
 
     web_search_enabled: bool = field(default_factory=lambda: _env_bool("WEB_SEARCH_ENABLED", True))
     web_search_timeout: int = field(default_factory=lambda: _env_int("WEB_SEARCH_TIMEOUT", 8))
+    brave_search_api_key: Optional[str] = field(
+        default_factory=lambda: _env_text("BRAVE_SEARCH_API_KEY") or _env_text("BRAVE_KEY"),
+        repr=False,
+    )
 
     # 美股数据源：Finnhub 作为 yfinance 的备选源（缺失时自动跳过，仅用 yfinance）
     finnhub_api_key: Optional[str] = field(default_factory=lambda: _env_text("FINNHUB_API_KEY"))

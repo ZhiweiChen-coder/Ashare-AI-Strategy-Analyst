@@ -1,6 +1,8 @@
 ﻿from __future__ import annotations
 
 import copy
+import hashlib
+import html
 import json
 import sqlite3
 import time
@@ -12,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs, urljoin
 from xml.etree import ElementTree
 
 import pandas as pd
@@ -22,6 +24,7 @@ from bs4 import BeautifulSoup
 from api.schemas import (
     AIInsight,
     AnalysisProgressResponse,
+    AgentClarification,
     AgentResponse,
     AgentHistoryTurn,
     GlobalNewsItem,
@@ -243,6 +246,12 @@ MARKET_REGIME_INDEXES: List[Tuple[str, str]] = [
     ("sz399001", "深证成指"),
     ("sz399006", "创业板指"),
 ]
+MARKET_REGIME_UNIVERSES = {
+    "a_share": MARKET_REGIME_INDEXES,
+    # ETFs are explicit, liquid proxies, not exchange index quotes.
+    "us": [("US.SPY", "S&P 500 · SPY"), ("US.QQQ", "Nasdaq-100 · QQQ"), ("US.DIA", "Dow Jones · DIA")],
+    "hk": [("HK.HSI", "恒生指数")],
+}
 
 
 @dataclass
@@ -640,6 +649,9 @@ class StockAnalysisService:
                 "data_points": len(bundle.dataframe),
                 "source": "yfinance/finnhub" if infer_market(quote.stock_code) == "us" else "akshare",
                 "generated_at": quote.timestamp.isoformat(),
+                "currency": "USD" if infer_market(quote.stock_code) == "us" else "HKD" if infer_market(quote.stock_code) == "hk" else "CNY",
+                "data_as_of": chart_series[-1].get("date") if chart_series else None,
+                "price_status": "historical_or_delayed",
             },
         )
         self.progress_store.update(
@@ -698,6 +710,18 @@ class NewsService:
         ]
 
         merged = self._merge_stock_news(live_items, stored_items)
+        if infer_market(normalized) == "us":
+            aliases = {"US.MU": ["Micron"], "US.AAPL": ["Apple"], "US.NVDA": ["NVIDIA"], "US.MSFT": ["Microsoft"]}
+            ticker = normalized.removeprefix("US.")
+            company_alias = re.sub(r",?\s+(?:Inc\.?|Corp\.?|Corporation|Ltd\.?|Limited|Holdings?)\b.*$", "", resolved_name, flags=re.I)
+            names = [*aliases.get(normalized, []), resolved_name, company_alias]
+            for item in merged:
+                blob = html.unescape(f"{item.title} {item.summary}")
+                # 'mRNA' is also a biological term. An uppercase ticker or a
+                # company-name mention is needed before calling this direct news.
+                mentioned = bool(re.search(rf"\b{re.escape(ticker)}\b", blob)) or any(name != normalized and name and re.search(rf"\b{re.escape(name)}\b", blob, re.I) for name in names)
+                item.relation_type = "direct" if mentioned else "market"
+                item.raw_payload["association_basis"] = "Company mention in source title or summary" if mentioned else "Retrieved through ticker query; company association unconfirmed"
         result = self._prioritize_stock_news(merged, limit=limit)
         self._response_cache.set(cache_key, result, 120)
         return result
@@ -720,7 +744,9 @@ class NewsService:
             merged.append(item)
         return merged
 
-    def get_global_news(self, limit: int = 20) -> List[GlobalNewsItem]:
+    def get_global_news(self, limit: int = 20, market: str = "global") -> List[GlobalNewsItem]:
+        if market == "us":
+            return self._get_us_headlines(limit)
         cache_key = f"global_news:{limit}"
         cached = self._response_cache.get(cache_key)
         if cached is not None:
@@ -773,6 +799,122 @@ class NewsService:
                 pass  # skip invalid item
         self._response_cache.set(cache_key, result, 90 if result else 15)
         return result
+
+    def _get_us_headlines(self, limit: int) -> List[GlobalNewsItem]:
+        """Merge general market headlines with a small company-news basket."""
+        cached = self._response_cache.get("us_headlines")
+        if cached is not None:
+            return cached[:limit]
+        records: List[NewsItem] = []
+        general_records: List[Dict[str, Any]] = []
+        executor = ThreadPoolExecutor(max_workers=4)
+        try:
+            company_futures = [executor.submit(self.get_stock_news, code, limit=6) for code in ("US.AAPL", "US.MSFT", "US.NVDA")]
+            general_future = executor.submit(self.tracker._fetch_finnhub_general_news)
+            done, pending = wait([*company_futures, general_future], timeout=5)
+            for future in pending:
+                future.cancel()
+            for future in done:
+                try:
+                    fetched = future.result()
+                    if future is general_future:
+                        if fetched is not None and not fetched.empty:
+                            general_records = fetched.to_dict(orient="records")
+                    elif fetched:
+                        records.extend(fetched)
+                except Exception:
+                    pass
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+        result: List[GlobalNewsItem] = []
+        seen = set()
+        catalog = get_base_stock_catalog()
+        aliases_by_symbol: Dict[str, set[str]] = defaultdict(set)
+        for name, info in catalog.items():
+            code = info.get("code", "")
+            if infer_market(code) == "us" and len(name.strip()) >= 2:
+                aliases_by_symbol[code].add(name.strip())
+
+        coverage = (
+            "Finnhub general market news plus selected-company queries; coverage is not comprehensive."
+            if general_records
+            else "Selected-company queries only; coverage is not comprehensive."
+        )
+
+        def to_global_item(item: NewsItem | Dict[str, Any], *, market_feed: bool) -> Optional[GlobalNewsItem]:
+            if isinstance(item, NewsItem):
+                title, summary, source = item.title, item.summary, item.source
+                published_at, url, item_id = item.published_at, item.url, item.id
+                provider_related = ""
+            else:
+                title = str(item.get("title") or "")
+                summary = str(item.get("content") or "")
+                source = str(item.get("source") or "Finnhub")
+                published_at = str(item.get("datetime") or "")
+                url = item.get("url")
+                item_id = str(item.get("id") or "")
+                provider_related = str(item.get("related") or "")
+            title, summary = html.unescape(title).strip(), html.unescape(summary).strip()
+            if not title:
+                return None
+            mention_text = f"{title} {summary}"
+            symbols: List[str] = []
+            for code, aliases in aliases_by_symbol.items():
+                mentioned = any(
+                    (re.search(rf"(?<![A-Za-z0-9]){re.escape(alias)}(?![A-Za-z0-9])", mention_text, re.I)
+                     if re.search(r"[A-Za-z]", alias) else alias in mention_text)
+                    for alias in aliases
+                )
+                ticker = code.removeprefix("US.")
+                ticker_mentioned = len(ticker) >= 2 and bool(re.search(
+                    rf"(?<![A-Za-z0-9]){re.escape(ticker)}(?![A-Za-z0-9])", mention_text
+                ))
+                if mentioned or ticker_mentioned:
+                    symbols.append(code)
+            return GlobalNewsItem(
+                id=item_id or str(url or title.casefold()),
+                title=title,
+                summary=summary,
+                source=source,
+                published_at=published_at,
+                category="company" if symbols else "market",
+                topic="Company mentions" if symbols else "Market news",
+                region="global" if market_feed else "US",
+                sentiment=(item.sentiment if isinstance(item, NewsItem) else _sentiment_from_summary(f"{title} {summary}")),
+                impact_level=item.impact_level if isinstance(item, NewsItem) else 1,
+                url=url,
+                related_symbols=symbols,
+                raw_payload={
+                    "coverage": coverage,
+                    "market_feed": market_feed,
+                    "general_feed_available": bool(general_records),
+                    "provider_related": provider_related or None,
+                    "association_basis": "Company mention in source title or summary" if symbols else "No company association confirmed",
+                },
+            )
+
+        candidates: List[tuple[NewsItem | Dict[str, Any], bool]] = [
+            *((item, False) for item in records),
+            *((item, True) for item in general_records),
+        ]
+        candidates.sort(key=lambda pair: (
+            pair[0].published_at if isinstance(pair[0], NewsItem) else str(pair[0].get("datetime") or "")
+        ), reverse=True)
+        for item, market_feed in candidates:
+            key = (
+                item.url or item.title.casefold()
+                if isinstance(item, NewsItem)
+                else item.get("url") or str(item.get("title") or "").casefold()
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized = to_global_item(item, market_feed=market_feed)
+            if normalized is not None:
+                result.append(normalized)
+        self._response_cache.set("us_headlines", result, 120 if result else 15)
+        return result[:limit]
 
     def get_context_news_for_query(self, query: str, limit: int = 6) -> List[GlobalNewsItem]:
         cache_key = f"context_news:{query.strip().lower()}:{limit}"
@@ -883,6 +1025,8 @@ class NewsService:
         items: List[Dict[str, Any]] = []
         for alert in self.state_store.get_recent_alerts(limit=120):
             title = alert.get("title", "")
+            if alert.get("event_type") == "fund_flow" or title.startswith("资金流追踪"):
+                continue
             summary = alert.get("summary", "")
             topic_meta = self._classify_global_topic(title, summary, alert.get("source") or "monitor")
             impact_level = max(int(topic_meta["impact_level"]), int(alert.get("priority", 1)))
@@ -969,6 +1113,7 @@ class NewsService:
 class WebSearchService:
     GOOGLE_NEWS_RSS = "https://news.google.com/rss/search"
     DDG_HTML = "https://html.duckduckgo.com/html/"
+    BRAVE_WEB_SEARCH = "https://api.search.brave.com/res/v1/web/search"
     SOURCE_ONLY_TITLES = {"财富号", "百家号", "搜狐号", "腾讯新闻", "网易号", "头条号", "雪球", "股吧"}
 
     def __init__(self, config: Optional[Config] = None):
@@ -985,43 +1130,120 @@ class WebSearchService:
             }
         )
 
-    def search(self, query: str, limit: int = 8) -> List[WebSearchResult]:
+    def search(self, query: str, limit: int = 8, language: str = "auto", market: str = "auto") -> List[WebSearchResult]:
+        return [WebSearchResult(**row) for row in self.search_report(query, limit, language, market)["results"]]
+
+    def search_report(self, query: str, limit: int = 8, language: str = "auto", market: str = "auto") -> dict:
         if not self.config.web_search_enabled:
-            return []
-        cache_key = f"web_search:{query.strip().lower()}:{limit}"
+            return {"results": [], "data_gaps": ["Public web search is disabled in configuration."]}
+        limit = min(8, max(1, limit))
+        english = market == "us" or language == "en-US" or (market == "auto" and not re.search(r"[\u4e00-\u9fff]", query))
+        cache_key = f"web_search:{query.strip().lower()}:{limit}:{english}"
         cached = self._response_cache.get(cache_key)
         if cached is not None:
             return cached
 
-        records: List[WebSearchResult] = []
-        records.extend(self._search_google_news(query, limit=limit))
-        records.extend(self._search_duckduckgo(query, limit=limit))
+        records, gaps = [], []
+        brave_key = getattr(self.config, "brave_search_api_key", None)
+        if brave_key:
+            try:
+                records.extend(self._search_brave(query, limit, english, market, brave_key))
+            except Exception as exc:
+                # Never persist provider response bodies: they may contain private
+                # request details. Keep only the exception class for diagnostics.
+                gaps.append(f"Brave Search unavailable ({type(exc).__name__}).")
+
+        if not records:
+            executor = ThreadPoolExecutor(max_workers=3)
+            futures = {}
+            if re.search(r"\bFCC\b", query, re.I):
+                futures[executor.submit(self._search_federal_register, query, limit)] = "Federal Register"
+            futures.update({
+                executor.submit(self._search_google_news, query, limit, english): "Google News RSS",
+                executor.submit(self._search_duckduckgo, query, limit): "DuckDuckGo",
+            })
+            try:
+                done, pending = wait(futures, timeout=min(20, self.timeout + 1))
+                for future in pending:
+                    future.cancel()
+                    gaps.append(f"{futures[future]} search timed out.")
+                for future in done:
+                    try:
+                        records.extend(future.result())
+                    except Exception as exc:
+                        gaps.append(f"{futures[future]} unavailable ({type(exc).__name__}).")
+            finally:
+                executor.shutdown(wait=False, cancel_futures=True)
+        if not any(row.provider != "google_news_rss" for row in records):
+            try:
+                records.extend(self._search_bing_rss(query, limit))
+            except Exception as exc:
+                gaps.append(f"Bing RSS unavailable ({type(exc).__name__}).")
 
         deduped: List[WebSearchResult] = []
         seen_urls: set[str] = set()
+        # Prefer original documents over news aggregator redirects.
+        records.sort(key=lambda row: (row.provider == "google_news_rss", not (urlparse(row.url).hostname or "").endswith((".gov", ".edu"))))
         for item in records:
             normalized_url = item.url.strip()
             if not normalized_url or normalized_url in seen_urls or self._is_source_only_title(item.title):
                 continue
             seen_urls.add(normalized_url)
             deduped.append(item)
-        result = deduped[:limit]
-        self._response_cache.set(cache_key, result, 120)
+        result = {"results": [row.model_dump() for row in deduped[:limit]], "data_gaps": gaps}
+        if not records:
+            result["data_gaps"].append("No usable search results returned; absence of results is not evidence of absence.")
+        self._response_cache.set(cache_key, result, 120 if records else 30)
         return result
 
-    def _search_google_news(self, query: str, limit: int) -> List[WebSearchResult]:
+    def _search_brave(self, query: str, limit: int, english: bool, market: str, api_key: str) -> List[WebSearchResult]:
+        """Use Brave's authenticated web endpoint when a server-side key is configured."""
+        country = {"us": "US", "cn": "CN", "sz": "CN", "sh": "CN", "hk": "HK"}.get(market, "US" if english else "CN")
+        search_lang = "en" if english else "zh-hans"
+        response = self.session.get(
+            self.BRAVE_WEB_SEARCH,
+            params={"q": query, "count": min(20, max(1, limit)), "country": country,
+                    "search_lang": search_lang, "ui_lang": "en-US" if english else "zh-CN"},
+            headers={"Accept": "application/json", "Accept-Encoding": "gzip",
+                     "X-Subscription-Token": api_key},
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        web_results = payload.get("web", {}).get("results", []) if isinstance(payload, dict) else []
+        results = []
+        for row in web_results:
+            if not isinstance(row, dict):
+                continue
+            title = str(row.get("title") or "").strip()
+            url = str(row.get("url") or "").strip()
+            if not title or urlparse(url).scheme not in {"https", "http"}:
+                continue
+            snippet = str(row.get("description") or title).strip()
+            extra = row.get("extra_snippets")
+            if isinstance(extra, list):
+                snippet = " ".join([snippet, *(str(value).strip() for value in extra if value)])
+            digest = hashlib.sha256(f"{query}\n{url}".encode("utf-8")).hexdigest()[:20]
+            results.append(WebSearchResult(
+                id=f"brave:{digest}", title=title, snippet=snippet[:1200], url=url,
+                source=self._domain_from_url(url), published_at=None,
+                provider="brave_search", query=query,
+            ))
+        return results
+
+    def _search_google_news(self, query: str, limit: int, english: bool = False) -> List[WebSearchResult]:
         params = {
             "q": query,
-            "hl": "zh-CN",
-            "gl": "CN",
-            "ceid": "CN:zh-Hans",
+            "hl": "en-US" if english else "zh-CN",
+            "gl": "US" if english else "CN",
+            "ceid": "US:en" if english else "CN:zh-Hans",
         }
         try:
             response = self.session.get(self.GOOGLE_NEWS_RSS, params=params, timeout=self.timeout)
             response.raise_for_status()
             root = ElementTree.fromstring(response.text)
         except Exception:
-            return []
+            raise
 
         results: List[WebSearchResult] = []
         for item in root.findall("./channel/item")[:limit]:
@@ -1051,9 +1273,11 @@ class WebSearchService:
             response = self.session.get(self.DDG_HTML, params={"q": query}, timeout=self.timeout)
             response.raise_for_status()
         except Exception:
-            return []
+            raise
 
         soup = BeautifulSoup(response.text, "html.parser")
+        if soup.select_one("#challenge-form, form[action*='anomaly']"):
+            raise ValueError("Search provider requires an interactive challenge.")
         results: List[WebSearchResult] = []
         for node in soup.select(".result")[: limit * 2]:
             title_node = node.select_one(".result__title a")
@@ -1062,6 +1286,10 @@ class WebSearchService:
                 continue
             title = title_node.get_text(" ", strip=True)
             href = (title_node.get("href") or "").strip()
+            href = urljoin(self.DDG_HTML, href)
+            href = parse_qs(urlparse(href).query).get("uddg", [href])[0]
+            if urlparse(href).scheme not in {"https", "http"}:
+                continue
             snippet = snippet_node.get_text(" ", strip=True) if snippet_node else title
             if not title or not href:
                 continue
@@ -1081,6 +1309,32 @@ class WebSearchService:
             if len(results) >= limit:
                 break
         return results
+
+    def _search_bing_rss(self, query: str, limit: int) -> List[WebSearchResult]:
+        response = self.session.get("https://www.bing.com/search", params={"q": query, "format": "rss"}, timeout=self.timeout)
+        response.raise_for_status()
+        root = ElementTree.fromstring(response.text)
+        return [WebSearchResult(id=f"bing:{item.findtext('link')}", title=item.findtext("title") or "",
+            snippet=(item.findtext("description") or "")[:500], url=item.findtext("link") or "",
+            source=self._domain_from_url(item.findtext("link") or ""), published_at=None,
+            provider="bing_rss", query=query) for item in root.findall("./channel/item")[:limit] if item.findtext("link")]
+
+    def _search_federal_register(self, query: str, limit: int) -> List[WebSearchResult]:
+        # Official public discovery is more dependable than scraped search for
+        # FCC rules. Returned document type is not a legal-status inference.
+        labs = bool(re.search(r"lab|testing|certification|实验室|认证", query, re.I))
+        term = '"telecommunications certification bodies"' if labs else re.sub(r"\bFCC\b|site:\S+", "", query, flags=re.I).strip()
+        response = self.session.get("https://www.federalregister.gov/api/v1/documents.json", params={
+            "conditions[term]": term, "conditions[agencies][]": "federal-communications-commission",
+            "order": "newest", "per_page": 15 if labs else limit}, timeout=self.timeout)
+        response.raise_for_status()
+        rows = response.json().get("results", [])
+        if labs:
+            rows = [row for row in rows if re.search(r"certification bodies|test(?:ing)? (?:labs|laboratories)|measurement facilities", row.get("title", ""), re.I)]
+        return [WebSearchResult(id=f"fr:{row['document_number']}", title=row["title"],
+            snippet=(f"Document type: {row.get('type', 'unknown')}. Publication: {row.get('publication_date', 'unknown')}. " + (row.get("abstract") or ""))[:1200],
+            url=row["html_url"], source="Federal Register / FCC", published_at=row.get("publication_date"),
+            provider="federal_register", query=query) for row in rows[:limit] if row.get("html_url")]
 
     @staticmethod
     def _strip_html(value: str) -> str:
@@ -1518,8 +1772,8 @@ class MarketService:
         self.stock_service = stock_service
         self._response_cache = TTLCacheStore()
         self._refresh_lock = Lock()
-        self._refresh_in_progress = False
-        self._last_response: Optional[MarketRegimeResponse] = None
+        self._refreshing: set[str] = set()
+        self._last_responses: Dict[str, MarketRegimeResponse] = {}
 
     def _build_index_snapshot(self, stock_code: str, stock_name: str) -> Optional[MarketIndexSnapshot]:
         try:
@@ -1527,8 +1781,10 @@ class MarketService:
         except Exception:
             return None
         current_price = analysis.quote.current_price
-        ma20 = analysis.technical_indicators.get("MA20") or current_price
-        ma60 = analysis.technical_indicators.get("MA60") or current_price
+        ma20 = analysis.technical_indicators.get("MA20")
+        ma60 = analysis.technical_indicators.get("MA60")
+        if current_price <= 0 or ma20 is None or ma60 is None:
+            return None
         return MarketIndexSnapshot(
             stock_code=analysis.stock_code,
             stock_name=stock_name,
@@ -1542,17 +1798,24 @@ class MarketService:
                 ma20=ma20,
                 ma60=ma60,
             ),
+            currency=str(analysis.metadata.get("currency") or ("USD" if analysis.market == "us" else "HKD" if analysis.market == "hk" else "CNY")),
+            data_as_of=analysis.metadata.get("data_as_of") or (str(analysis.chart_series[-1].get("date")) if analysis.chart_series else None),
+            provider=analysis.metadata.get("source"),
+            is_proxy=stock_code in {"US.SPY", "US.QQQ", "US.DIA"},
         )
 
-    def _compute_market_regime(self) -> MarketRegimeResponse:
+    def _compute_market_regime(self, market: str = "a_share") -> MarketRegimeResponse:
         snapshots: List[MarketIndexSnapshot] = []
-        for stock_code, stock_name in MARKET_REGIME_INDEXES:
+        gaps = []
+        for stock_code, stock_name in MARKET_REGIME_UNIVERSES[market]:
             snapshot = self._build_index_snapshot(stock_code, stock_name)
             if snapshot is not None:
                 snapshots.append(snapshot)
+            else:
+                gaps.append(f"Source data unavailable for {stock_code}.")
 
         if not snapshots:
-            return self._build_market_regime_fallback()
+            return self._build_market_regime_fallback(market).model_copy(update={"is_loading": False, "status": "unavailable", "data_gaps": gaps, "summary": "数据不可用，无法判断市场状态。"})
 
         average_trend = sum(item.trend_score for item in snapshots) / len(snapshots)
         above_ma20_ratio = sum(1 for item in snapshots if item.above_ma20) / len(snapshots)
@@ -1589,28 +1852,34 @@ class MarketService:
             notes=self._build_market_notes(snapshots, regime),
             indices=snapshots,
             updated_at=_now_utc(),
+            market=market,
+            status="partial" if gaps else "ready",
+            data_gaps=gaps,
         )
         return response
 
-    def _start_background_refresh(self) -> None:
+    def _start_background_refresh(self, market: str = "a_share") -> None:
         with self._refresh_lock:
-            if self._refresh_in_progress:
+            if market in self._refreshing:
                 return
-            self._refresh_in_progress = True
+            self._refreshing.add(market)
 
         def refresh() -> None:
             try:
-                response = self._compute_market_regime()
-                self._last_response = response
-                self._response_cache.set("market_regime", response, 120)
+                response = self._compute_market_regime(market)
+            except Exception:
+                response = self._build_market_regime_fallback(market).model_copy(update={"is_loading": False, "status": "unavailable", "data_gaps": ["Market provider retrieval failed."]})
+            try:
+                self._last_responses[market] = response
+                self._response_cache.set(f"market_regime:{market}", response, 120)
             finally:
                 with self._refresh_lock:
-                    self._refresh_in_progress = False
+                    self._refreshing.discard(market)
 
-        Thread(target=refresh, name="market-regime-refresh", daemon=True).start()
+        Thread(target=refresh, name=f"market-regime-refresh-{market}", daemon=True).start()
 
     @staticmethod
-    def _build_market_regime_fallback() -> MarketRegimeResponse:
+    def _build_market_regime_fallback(market: str = "a_share") -> MarketRegimeResponse:
         return MarketRegimeResponse(
             regime="neutral",
             is_loading=True,
@@ -1621,19 +1890,21 @@ class MarketService:
             notes=[],
             indices=[],
             updated_at=_now_utc(),
+            market=market,
+            status="loading",
         )
 
-    def get_market_regime(self) -> MarketRegimeResponse:
-        cached = self._response_cache.get("market_regime")
+    def get_market_regime(self, market: str = "a_share") -> MarketRegimeResponse:
+        cache_key = f"market_regime:{market}"
+        cached = self._response_cache.get(cache_key)
         if cached is not None:
             return cached
 
-        self._start_background_refresh()
-        if self._last_response is not None:
-            return self._last_response
-        fallback = self._build_market_regime_fallback()
-        self._response_cache.set("market_regime", fallback, 20)
-        return fallback
+        self._start_background_refresh(market)
+        previous = self._last_responses.get(market)
+        if previous is not None:
+            return previous
+        return self._build_market_regime_fallback(market)
 
     @staticmethod
     def _score_index_trend(
@@ -2075,9 +2346,12 @@ class PortfolioService:
         total_cost = 0.0
         total_market_value = 0.0
         high_risk_count = 0
+        currencies: set[str] = set()
 
         for position in positions:
             stock_analysis = self.analysis_service.get_stock_analysis(position.stock_code, include_ai=False)
+            currency = stock_analysis.metadata.get("currency") or {"us": "USD", "hk": "HKD"}.get(infer_market(position.stock_code), "CNY")
+            currencies.add(currency)
             current_price = stock_analysis.quote.current_price
             market_value = current_price * position.quantity
             cost = position.cost_price * position.quantity
@@ -2098,6 +2372,8 @@ class PortfolioService:
                     risk_level=risk_level,
                     signal_summary=stock_analysis.signal_summary,
                     suggestion=suggestion,
+                    currency=currency,
+                    data_as_of=stock_analysis.metadata.get("data_as_of"),
                 )
             )
             total_cost += cost
@@ -2116,14 +2392,17 @@ class PortfolioService:
             suggestions.append("当前组合风险可控，建议继续跟踪消息和技术面变化。")
 
         return PortfolioAnalysisResponse(
-            total_cost=total_cost,
-            total_market_value=total_market_value,
-            total_pnl=total_pnl,
-            total_pnl_pct=total_pnl_pct,
+            total_cost=total_cost if len(currencies) == 1 else 0,
+            total_market_value=total_market_value if len(currencies) == 1 else 0,
+            total_pnl=total_pnl if len(currencies) == 1 else 0,
+            total_pnl_pct=total_pnl_pct if len(currencies) == 1 else 0,
             concentration_risk=concentration_risk,
             technical_risk=technical_risk,
             rebalance_suggestions=suggestions,
             positions=analyses,
+            currency=next(iter(currencies)) if len(currencies) == 1 else None,
+            aggregation_available=len(currencies) == 1,
+            data_gaps=[] if len(currencies) == 1 else ["Mixed currencies: aggregate value, P&L and return are unavailable without dated FX rates. Zero total fields are placeholders, not portfolio values."],
         )
 
 
@@ -3257,6 +3536,147 @@ class AgentService:
             "comparison_peers": 300,
         }
 
+    def clarification_for_query(
+        self,
+        user_query: str,
+        history: Optional[List[AgentHistoryTurn]] = None,
+        memory_profile: Optional[Dict[str, Any]] = None,
+    ) -> Optional[AgentResponse]:
+        query = user_query.strip()
+        history = history or []
+        memory_profile = memory_profile or {}
+        target_hint = self._extract_stock_from_history(history, memory_profile)
+        rewrite = self._rewrite_query(query, history, memory_profile, target_hint)
+
+        # A broad company-research request needs a topic before we retrieve a
+        # grab bag of sources. Keep explicit requests (for example, latest
+        # news, earnings, filings, or a first-pass investor brief) on the
+        # direct research path.
+        target_in_query = self._extract_named_stock_from_text(query)
+        ticker_match = re.search(
+            r"\b(?:US\.)?([A-Z]{1,6}(?:\.[A-Z])?)\b|[（(]\s*([A-Z]{1,6}(?:\.[A-Z])?)\s*[）)]",
+            query,
+        )
+        explicit_ticker = next((part for part in ticker_match.groups() if part), None) if ticker_match else None
+        explicit_ticker = explicit_ticker.upper() if explicit_ticker else None
+        known_local_tickers = {
+            str(info.get("code", "")).split(".")[-1].upper()
+            for info in stock_searcher.base_stock_db.values()
+            if isinstance(info, dict) and info.get("code")
+        }
+        if explicit_ticker not in known_local_tickers:
+            explicit_ticker = None
+        has_company_target = bool(target_hint or target_in_query or explicit_ticker)
+        broad_research_request = bool(
+            re.search(
+                r"\b(?:research|analy[sz]e|look\s+into|learn\s+about|tell\s+me\s+about|do\s+(?:some\s+)?research)\b"
+                r"|研究|分析|了解|介绍",
+                query,
+                re.IGNORECASE,
+            )
+        )
+        explicit_research_scope = bool(
+            re.search(
+                r"\b(?:overview|profile|business|products?|competition|competitors?|financials?|filings?|"
+                r"earnings?|revenue|valuation|price|stock\s+performance|technicals?|risks?|news|headlines?|"
+                r"catalysts?|supply\s+chain|investor\s+brief|investment\s+brief|market(?:\s+(?:share|position|dynamics))?|"
+                r"industry|technology|strategy|growth|customers?|margins?|competitive\s+position)\b"
+                r"|概况|简介|业务|产品|竞争|财务|财报|公告|营收|估值|股价|走势|技术面|风险|新闻|消息|催化|供应链|投资简报|市场|行业|技术|芯片|市占率|市场份额|客户|管理层|战略|增长|利润率",
+                query,
+                re.IGNORECASE,
+            )
+        )
+        direct_stock_analysis = bool((target_in_query or explicit_ticker)
+                                     and re.search(r"\banaly[sz]e\b|分析", query, re.I))
+        if (broad_research_request and has_company_target and not explicit_research_scope and not direct_stock_analysis
+                and rewrite.intent != "stock_analysis"):
+            is_english = not re.search(r"[\u3400-\u9fff]", query)
+            target_name = (
+                (target_in_query or {}).get("name")
+                or explicit_ticker
+                or (target_hint or {}).get("name")
+                or (target_hint or {}).get("code")
+                or "this company"
+            )
+            question = (
+                f"What would you like to focus on for {target_name}?"
+                if is_english
+                else f"你想重点研究{target_name}的哪方面？"
+            )
+            options = (
+                ["Business and competition", "Financials and filings", "News and catalysts", "Price and risks"]
+                if is_english
+                else ["业务与竞争", "财务与公告", "新闻与催化", "股价与风险"]
+            )
+            summary = (
+                "Choose a research angle and I’ll look up the relevant sources."
+                if is_english
+                else "选择一个研究方向，我会据此查找相关资料。"
+            )
+            slots = self._build_context_slots(query, rewrite, history, memory_profile)
+            slots.requested_action = "clarification"
+            slots.current_stock = target_in_query or target_hint
+            if not slots.current_stock and explicit_ticker:
+                matched_stock = next(
+                    (
+                        (name, info)
+                        for name, info in stock_searcher.base_stock_db.items()
+                        if isinstance(info, dict)
+                        and str(info.get("code", "")).split(".")[-1].upper() == explicit_ticker
+                    ),
+                    None,
+                )
+                if matched_stock:
+                    slots.current_stock = {
+                        "name": matched_stock[0],
+                        "code": normalize_stock_code(str(matched_stock[1]["code"])),
+                    }
+            return AgentResponse(
+                intent="clarification",
+                summary=summary,
+                clarification=AgentClarification(question=question, options=options),
+                payload={"_meta": self._meta_payload([], [], rewrite, slots)},
+            )
+
+        if rewrite.intent != "clarification":
+            return None
+
+        is_english = not re.search(r"[\u3400-\u9fff]", query)
+        is_news_question = any(token in query.lower() for token in ["news", "headline", "story", "新闻", "消息"])
+        is_stock_question = any(token in query.lower() for token in ["stock", "ticker", "股票", "个股", "这票", "这只"])
+        if is_news_question:
+            question = "Which news item or topic do you mean?" if is_english else "你指的是哪条新闻或哪个主题？"
+            options = (
+                ["Paste a headline or link", "Choose a company or topic", "See global news"]
+                if is_english
+                else ["贴出新闻标题或链接", "指定公司或主题", "查看全球新闻"]
+            )
+            summary = "Please clarify the news or topic." if is_english else "请先明确要看的新闻或主题。"
+        elif is_stock_question:
+            question = "Which stock would you like to research?" if is_english else "你想研究哪只股票？"
+            options = (
+                ["Choose a stock", "See the market overview", "Review my portfolio"]
+                if is_english
+                else ["选择一只股票", "查看市场概览", "分析我的持仓"]
+            )
+            summary = "Please specify the stock or choose another research path." if is_english else "请先明确股票，或选择其他研究方向。"
+        else:
+            question = "What would you like to research?" if is_english else "你想研究哪一类内容？"
+            options = (
+                ["Stock analysis", "News and catalysts", "Market overview", "My portfolio"]
+                if is_english
+                else ["个股分析", "新闻与催化", "市场概览", "我的持仓"]
+            )
+            summary = "Choose a direction and I’ll continue your question." if is_english else "选择一个方向后，我会继续原问题。"
+
+        slots = self._build_context_slots(query, rewrite, history, memory_profile)
+        return AgentResponse(
+            intent="clarification",
+            summary=summary,
+            clarification=AgentClarification(question=question, options=options),
+            payload={"_meta": self._meta_payload([], [], rewrite, slots)},
+        )
+
     def query(
         self,
         user_query: str,
@@ -3281,6 +3701,10 @@ class AgentService:
         cache_hits: List[str] = []
         report("understand_query", 5, "已接收问题，开始理解查询意图")
         report("load_memory", 15, "已加载会话记忆与历史上下文")
+        clarification = self.clarification_for_query(query, history, memory_profile)
+        if clarification is not None:
+            report("select_engine", 25, "需要先明确研究对象", {"engine": "clarification"})
+            return clarification
         context_target = self._extract_stock_from_history(history, memory_profile)
         target: Optional[Dict[str, str]] = None
         stock_resolution: Optional[StockResolution] = None
@@ -3392,9 +3816,10 @@ class AgentService:
             if portfolio_cached:
                 cache_hits.append("portfolio_analysis")
             report_tool_done(50, "持仓组合分析已完成", "portfolio_analysis", portfolio_cached)
+            performance = f"总盈亏 {analysis.total_pnl:.2f} {analysis.currency or ''}，收益率 {analysis.total_pnl_pct:.2f}%" if analysis.aggregation_available else "多个币种缺少带日期的汇率，无法汇总盈亏或收益率。"
             summary = (
                 "## 组合快照\n"
-                f"- 总盈亏 {analysis.total_pnl:.2f}，收益率 {analysis.total_pnl_pct:.2f}%\n"
+                f"- {performance}\n"
                 f"- 集中度风险 {analysis.concentration_risk}，技术风险 {analysis.technical_risk}\n"
                 "## 当前判断\n"
                 f"- {analysis.rebalance_suggestions[0]}"
@@ -3854,12 +4279,25 @@ class AgentService:
                 include_context=False,
                 follow_up=False,
             )
-        if not target_hint and any(
+        normalized_query = re.sub(r"[\s，。！？、,.!?;:]+", "", query.lower())
+        bare_research_request = bool(
+            re.fullmatch(r"(?:请)?(?:帮我)?(?:分析|看看|看|研究|解释|比较)(?:一下|下)?", normalized_query)
+            or re.fullmatch(r"(?:please)?(?:helpme)?(?:analyze|analyse|review|research|explain|compare)(?:this|it)?", normalized_query)
+        )
+        if not target_hint and (bare_research_request or any(
             token in query for token in ["这票", "这只股票", "能不能上车", "要不要减仓", "这个消息", "这个新闻", "这个利好"]
-        ):
+        )):
+            if bare_research_request:
+                clarification_intent = "澄清研究方向"
+            elif any(token in lower_query for token in ["news", "headline", "story"]) or any(
+                token in query for token in ["这个消息", "这个新闻", "这个利好"]
+            ):
+                clarification_intent = "澄清新闻或主题对象"
+            else:
+                clarification_intent = "澄清股票对象"
             return IntentRewriteResult(
                 intent="clarification",
-                rewritten_query="澄清股票或消息对象",
+                rewritten_query=clarification_intent,
                 target_stock=None,
                 wants_live_web=False,
                 include_context=False,

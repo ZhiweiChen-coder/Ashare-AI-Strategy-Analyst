@@ -11,6 +11,7 @@ from ashare.stock_pool import (
     extract_symbol,
     get_exchange_label,
     is_hk_index,
+    is_hk_stock,
     is_us_stock,
     is_valid_stock_code,
     normalize_stock_code,
@@ -102,6 +103,8 @@ class DataFetcher:
             df = None
             if is_hk_index(code):
                 df = self._fetch_stock_data_hk_index(code, count, frequency)
+            elif is_hk_stock(code):
+                df = self._fetch_stock_data_hk(code, count, frequency)
             elif is_us_stock(code):
                 # 美股走独立链路：yfinance 主源，Finnhub 备选
                 df = self._fetch_stock_data_us(code, count, frequency)
@@ -245,6 +248,12 @@ class DataFetcher:
     def _fetch_stock_data_hk_index(self, code: str, count: int, frequency: str) -> Optional[pd.DataFrame]:
         """恒生指数：使用 Yahoo Finance 的指数代码，不走美股 Finnhub 兜底。"""
         return self._fetch_stock_data_yfinance_symbol("^HSI", count, frequency)
+
+    def _fetch_stock_data_hk(self, code: str, count: int, frequency: str) -> Optional[pd.DataFrame]:
+        """Fetch Hong Kong equity history from Yahoo Finance using its HKEX symbol format."""
+        symbol = extract_symbol(code)
+        yahoo_symbol = f"{symbol[1:] if symbol.startswith('0') else symbol}.HK"
+        return self._fetch_stock_data_yfinance_symbol(yahoo_symbol, count, frequency)
 
     def _fetch_stock_data_yfinance(self, code: str, count: int, frequency: str) -> Optional[pd.DataFrame]:
         return self._fetch_stock_data_yfinance_symbol(self._us_yf_symbol(code), count, frequency)

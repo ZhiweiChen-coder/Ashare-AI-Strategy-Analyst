@@ -68,13 +68,16 @@ data/*.db
 data/agent_memory/
 data/strategy_analysis_cache.json
 data/user_settings.json
+data/sec_cache/
 output/
 info
 
-# Local captures (keep curated README screenshots such as agent-research-beta.png)
+# Local captures and source media (use curated assets from public/marketing/)
 assets/screenshots/Screen Recording *
 assets/screenshots/Screenshot *.png
+assets/screenshots/*.mov
 assets/screenshots/demo.mp4
+assets/fonts/微软雅黑.ttf
 
 # Temporary files
 *.tmp

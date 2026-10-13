@@ -65,18 +65,6 @@ export default function LandingMedia({
 
   return (
     <figure className={panelClassName} aria-label={label}>
-      <div className={styles.chromeBar} aria-hidden="true">
-        <div className={styles.trafficLights}>
-          <span />
-          <span />
-          <span />
-        </div>
-        <span className={styles.chromePath}>OPENASHARE / RESEARCH DESK</span>
-        <span className={styles.liveMark}>
-          <i /> RESEARCH VIEW
-        </span>
-      </div>
-
       <div className={styles.viewport} aria-label={label} role="img">
         <div className={styles.mediaStage}>
           {showVideo ? (
@@ -118,10 +106,6 @@ export default function LandingMedia({
           <div className={styles.overlayNote} aria-hidden="true">
             <span>MARKET PULSE</span>
           </div>
-        </div>
-        <div className={styles.statusBar} aria-hidden="true">
-          <span>AI RESEARCH WORKSPACE</span>
-          <span>{showVideo ? "AUTOPLAY / MUTED" : "STILL FRAME / LOW MOTION"}</span>
         </div>
       </div>
 

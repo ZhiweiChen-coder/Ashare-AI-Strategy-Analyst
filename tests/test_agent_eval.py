@@ -8,12 +8,13 @@ from api.agent_pydantic import (
     build_agent_response,
     run_agent_async,
 )
+from api.schemas import AgentClarification
 from api.agent_eval import EvalCase, EvalObservation, evaluate_case, summarize_report
 from tests.agent_eval_cases import PUBLIC_EVAL_CASES
 
 
-def _response(*, summary="", tools=(), citations=(), intent="test", payload=None):
-    return {
+def _response(*, summary="", tools=(), citations=(), intent="test", payload=None, clarification=None):
+    response = {
         "intent": intent,
         "summary": summary,
         "citations": list(citations),
@@ -22,6 +23,9 @@ def _response(*, summary="", tools=(), citations=(), intent="test", payload=None
             "_meta": {"tools_used": list(tools)},
         },
     }
+    if clarification is not None:
+        response["clarification"] = clarification
+    return response
 
 
 def test_tool_aliases_and_citations_are_evaluated():
@@ -51,11 +55,25 @@ def test_greeting_rejects_any_tool_and_long_answer():
 
 def test_ambiguous_question_requires_clarification():
     case = next(item for item in PUBLIC_EVAL_CASES if item.case_id == "ambiguous_stock_asks_clarification")
-    response = _response(summary="你指的是哪只股票？请提供代码或名称即可。")
+    response = _response(
+        summary="请提供股票代码或名称，或选择其他研究方向。",
+        intent="clarification",
+        clarification={"question": "你想研究哪只股票？", "options": ["苹果", "微软"]},
+    )
 
     result = evaluate_case(case, EvalObservation.from_response(response))
 
     assert result.passed
+
+
+def test_clarification_text_without_modal_options_fails_review():
+    case = next(item for item in PUBLIC_EVAL_CASES if item.case_id == "ambiguous_stock_asks_clarification")
+    response = _response(summary="你指的是哪只股票？请提供代码或名称即可。", intent="clarification")
+
+    result = evaluate_case(case, EvalObservation.from_response(response))
+
+    assert not result.passed
+    assert {failure.rule for failure in result.failures} == {"structured_clarification"}
 
 
 def test_missing_required_tool_is_reported_without_dumping_payload():
@@ -114,7 +132,7 @@ def test_agent_run_delegates_tool_choice_to_agent():
     calls = []
 
     class FakeAgent:
-        async def run(self, query, deps):
+        async def run(self, query, deps, **kwargs):
             calls.append(query)
             return SimpleNamespace(output=AgentOutput(summary="## 消息\n- 等待工具结果", actions=[]))
 
@@ -165,7 +183,68 @@ def test_news_response_does_not_invent_technical_payload():
     assert response.payload["news"][0]["title"] == "海光信息发布公告"
     assert "quote" not in response.payload
     assert "signal_summary" not in response.payload
-    assert "/api/stocks/.../news" in response.citations
+    assert "/api/stocks/sh688041/news" in response.citations
+
+
+def test_structured_clarification_clears_other_response_components():
+    response = build_agent_response(
+        AgentOutput(
+            summary="你想分析哪只股票？",
+            actions=["查看行情"],
+            ui_components=["chart", "actions"],
+            clarification=AgentClarification(
+                question="你想分析哪只股票？",
+                options=["苹果", "微软"],
+            ),
+        ),
+        [],
+    )
+
+    assert response.intent == "clarification"
+    assert response.clarification is not None
+    assert response.clarification.options == ["苹果", "微软"]
+    assert response.actions == []
+    assert response.ui_components == []
+
+
+def test_response_selects_only_tool_backed_native_components():
+    analysis = {
+        "stock_name": "Apple",
+        "stock_code": "US.AAPL",
+        "market": "us",
+        "quote": {"current_price": 200, "change_pct": 1.2},
+        "chart_series": [
+            {"date": "2026-09-01", "open": 195, "high": 201, "low": 194, "close": 200},
+            {"date": "2026-09-02", "open": 200, "high": 202, "low": 199, "close": 201},
+        ],
+        "technical_indicators": {},
+        "technical_commentary": [],
+        "ai_insight": {"enabled": False},
+        "metadata": {},
+    }
+    response = build_agent_response(
+        AgentOutput(
+            summary="| Metric | Value |\n| --- | --- |\n| Revenue | Retrieved |",
+            actions=["查看最新消息"],
+            ui_components=["chart", "table", "comparison", "actions"],
+        ),
+        [
+            {"tool": "get_stock_analysis", "data": analysis},
+            {"tool": "get_stock_analysis", "data": {**analysis, "stock_name": "Microsoft", "stock_code": "US.MSFT"}},
+        ],
+    )
+
+    assert response.ui_components == ["chart", "table", "comparison", "actions"]
+    assert len(response.payload["stocks"]) == 2
+
+
+def test_response_drops_components_without_supporting_data():
+    response = build_agent_response(
+        AgentOutput(summary="没有检索到足够数据。", ui_components=["chart", "table", "comparison", "actions"]),
+        [],
+    )
+
+    assert response.ui_components == []
 
 
 def test_combined_response_projects_both_requested_tool_results():
@@ -197,12 +276,12 @@ def test_combined_response_projects_both_requested_tool_results():
     assert response.payload["quote"]["current_price"] == 100
     assert response.payload["news"][0]["title"] == "公告"
     assert "/api/stocks/sh688041/analysis" in response.citations
-    assert "/api/stocks/.../news" in response.citations
+    assert "/api/stocks/sh688041/news" in response.citations
 
 
 def test_greeting_short_circuits_before_agent_tool_choice():
     class FailingAgent:
-        async def run(self, query, deps):
+        async def run(self, query, deps, **kwargs):
             raise AssertionError("greeting should not reach the model")
 
     deps = AgentDeps(

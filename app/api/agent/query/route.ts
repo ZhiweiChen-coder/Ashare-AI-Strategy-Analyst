@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { blockedDeepResearch } from "@/lib/research-availability";
 
 /**
  * Server-side proxy for POST /api/agent/query.
@@ -10,7 +11,16 @@ const BACKEND =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "http://127.0.0.1:8000";
 
-const AGENT_TIMEOUT_MS = 120_000;
+// Public beta is Quick-only; local Next.js does not enforce this platform limit.
+export const maxDuration = 300;
+
+function agentTimeoutFor(body: string) {
+  try {
+    return JSON.parse(body)?.research_mode === "deep" ? 560_000 : 190_000;
+  } catch {
+    return 190_000;
+  }
+}
 
 export async function POST(request: Request) {
   const backendUrl = `${BACKEND.replace(/\/$/, "")}/api/agent/query`;
@@ -24,8 +34,11 @@ export async function POST(request: Request) {
     );
   }
 
+  const blocked = blockedDeepResearch(body, process.env);
+  if (blocked) return NextResponse.json(blocked, { status: 503 });
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), AGENT_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), agentTimeoutFor(body));
   const headers = new Headers(request.headers);
   headers.set("Content-Type", "application/json");
   headers.delete("host");
@@ -51,7 +64,7 @@ export async function POST(request: Request) {
       {
         intent: "error",
         summary: isAbort
-          ? "Agent request timed out after 2 minutes. The backend may be down, or stock analysis may be taking too long."
+          ? "The research connection timed out. The report may be incomplete; check available sources before starting another request."
           : `Proxy error: ${msg}. Check BACKEND_BASE_URL and that uvicorn is running.`,
         actions: [
           "Run ./scripts/run_api.sh and retry.",

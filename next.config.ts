@@ -4,6 +4,7 @@ const distDir = process.env.NODE_ENV === "development" ? ".next-dev" : ".next";
 
 const nextConfig: NextConfig = {
   distDir,
+  allowedDevOrigins: ["127.0.0.1"],
   reactStrictMode: true,
   async headers() {
     return [

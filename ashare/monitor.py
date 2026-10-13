@@ -535,7 +535,8 @@ class NewsTracker:
 
             resp = requests.get(
                 "https://finnhub.io/api/v1/company-news",
-                params={"symbol": finnhub_symbol, "from": start_date, "to": end_date, "token": api_key},
+                params={"symbol": finnhub_symbol, "from": start_date, "to": end_date},
+                headers={"X-Finnhub-Token": api_key},
                 timeout=10,
             )
             resp.raise_for_status()
@@ -567,6 +568,52 @@ class NewsTracker:
         if not rows:
             return None
         return pd.DataFrame(rows)
+
+    def _fetch_finnhub_general_news(self) -> Optional[pd.DataFrame]:
+        """Fetch Finnhub's general market feed when a provider key is configured."""
+        api_key = getattr(self.config, "finnhub_api_key", None) if self.config else None
+        if not api_key:
+            return None
+        try:
+            import requests
+
+            resp = requests.get(
+                "https://finnhub.io/api/v1/news",
+                params={"category": "general"},
+                headers={"X-Finnhub-Token": api_key},
+                timeout=4,
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        except Exception as exc:
+            logger.warning("Finnhub 综合新闻获取失败: %s", type(exc).__name__)
+            return None
+        if not isinstance(payload, list) or not payload:
+            return None
+
+        rows = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            timestamp = item.get("datetime")
+            occurred_at = (
+                datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                if isinstance(timestamp, (int, float)) and timestamp > 0
+                else ""
+            )
+            headline = normalize_text(item.get("headline"))
+            if not headline:
+                continue
+            rows.append({
+                "id": item.get("id"),
+                "title": headline,
+                "content": normalize_text(item.get("summary")),
+                "source": normalize_text(item.get("source")) or "Finnhub",
+                "datetime": occurred_at,
+                "url": normalize_text(item.get("url")),
+                "related": normalize_text(item.get("related")),
+            })
+        return pd.DataFrame(rows) if rows else None
 
     def _collect_source_items(
         self,

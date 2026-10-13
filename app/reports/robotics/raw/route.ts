@@ -16,7 +16,7 @@ export async function GET() {
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
 
-    return new Response(`机器人产业报告暂时不可用：${message}`, {
+    return new Response(`The archived robotics report is currently unavailable: ${message}`, {
       status: 404,
       headers: {
         "Content-Type": "text/plain; charset=utf-8",

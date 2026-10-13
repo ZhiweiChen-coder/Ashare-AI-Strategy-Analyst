@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+AgentUIComponent = Literal["chart", "table", "comparison", "actions"]
+
 
 class StockSearchResult(BaseModel):
     name: str
@@ -157,6 +159,10 @@ class MarketIndexSnapshot(BaseModel):
     above_ma20: bool = False
     above_ma60: bool = False
     trend_score: float = 0
+    currency: str = "CNY"
+    data_as_of: Optional[str] = None
+    provider: Optional[str] = None
+    is_proxy: bool = False
 
 
 class MarketRegimeResponse(BaseModel):
@@ -169,6 +175,9 @@ class MarketRegimeResponse(BaseModel):
     notes: List[str] = Field(default_factory=list)
     indices: List[MarketIndexSnapshot] = Field(default_factory=list)
     updated_at: Optional[datetime] = None
+    market: Literal["a_share", "us", "hk"] = "a_share"
+    status: Literal["ready", "partial", "loading", "unavailable"] = "ready"
+    data_gaps: List[str] = Field(default_factory=list)
 
 
 class PortfolioPosition(BaseModel):
@@ -191,6 +200,8 @@ class PositionAnalysis(BaseModel):
     risk_level: Literal["low", "medium", "high"]
     signal_summary: SignalSummary
     suggestion: str
+    currency: str = "CNY"
+    data_as_of: Optional[str] = None
 
 
 class PortfolioAnalysisResponse(BaseModel):
@@ -202,6 +213,9 @@ class PortfolioAnalysisResponse(BaseModel):
     technical_risk: str
     rebalance_suggestions: List[str]
     positions: List[PositionAnalysis]
+    currency: Optional[str] = None
+    aggregation_available: bool = True
+    data_gaps: List[str] = Field(default_factory=list)
 
 
 class StrategyScoreBreakdown(BaseModel):
@@ -331,14 +345,79 @@ class AgentQuery(BaseModel):
     session_id: Optional[str] = None
     request_id: Optional[str] = None
     history: List[AgentHistoryTurn] = Field(default_factory=list)
+    language: Literal["auto", "en-US", "zh-CN"] = "auto"
+    research_mode: Literal["quick", "deep"] = "quick"
+
+
+class AgentResearchCapabilities(BaseModel):
+    quick_available: bool = True
+    deep_available: bool
+    deep_unavailable_reason: Optional[str] = None
+    deep_unavailable_message: Optional[str] = None
+
+
+class WatchlistItem(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(default="", max_length=120)
+
+
+class WatchlistSnapshot(BaseModel):
+    initialized: bool
+    items: List[WatchlistItem]
+
+
+class WatchlistInitialize(BaseModel):
+    items: List[WatchlistItem] = Field(max_length=200)
+
+
+class WatchlistMutation(BaseModel):
+    action: Literal["add", "remove"]
+    code: str = Field(min_length=1, max_length=40)
+
+
+class WatchlistResult(WatchlistSnapshot):
+    action: Literal["add", "remove", "list"]
+    stock_code: str = ""
+    stock_name: str = ""
+    changed: bool = False
+
+
+class ResearchStep(BaseModel):
+    tool: str
+    status: Literal["completed", "unavailable"]
+    retrieved_at: str
+    evidence_count: int = 0
+    reason_code: Optional[str] = None
+
+
+class ResearchEvidence(BaseModel):
+    id: str
+    source: str
+    url: Optional[str] = None
+    retrieved_at: str
+    data_as_of: Optional[str] = None
+    freshness: str = "unknown"
+    title: Optional[str] = None
+    excerpts: List[Dict[str, str]] = Field(default_factory=list)
+
+
+class AgentClarification(BaseModel):
+    question: str = Field(min_length=2, max_length=240)
+    options: List[str] = Field(min_length=2, max_length=4)
+    allow_free_text: bool = True
 
 
 class AgentResponse(BaseModel):
     intent: str
     summary: str
     actions: List[str] = Field(default_factory=list)
+    ui_components: List[Literal["chart", "table", "comparison", "actions"]] = Field(default_factory=list)
+    clarification: Optional[AgentClarification] = None
     citations: List[str] = Field(default_factory=list)
     payload: Dict[str, Any] = Field(default_factory=dict)
+    research_steps: List[ResearchStep] = Field(default_factory=list)
+    evidence: List[ResearchEvidence] = Field(default_factory=list)
+    data_gaps: List[str] = Field(default_factory=list)
 
 
 class CreditBalanceResponse(BaseModel):
@@ -393,5 +472,5 @@ class UserSettingsUpdate(BaseModel):
     llm_api_key: Optional[str] = Field(
         None,
         max_length=512,
-        description="新的 API Key。为安全起见不会通过接口回显，仅用于更新服务端配置。",
+        description="New API key. It is never returned by the API and is only used to update server configuration.",
     )
