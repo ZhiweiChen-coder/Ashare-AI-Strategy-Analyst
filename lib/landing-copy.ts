@@ -12,7 +12,7 @@ export const landingCopy = {
     support: "Stocks, news and AI research. One connected view.", primary: "Open the research desk", secondary: "Watch the demos",
     watchDemo: "Watch the demos", pauseMotion: "Pause motion", playMotion: "Play motion", staticMotion: "Still view",
     studyDescription: "Illustrative candlesticks follow an overall ascending curve with gentle, continuous fluctuations. Not live market data.",
-    experienceTitle: "AN AI STOCK RESEARCH DESK",
+    experienceTitle: "01 / experience",
     videoUnavailable: "The video could not load.", openVideo: "Open video",
     videoPlayer: "Video player", playVideo: "Play video", pauseVideo: "Pause video", replayVideo: "Replay video",
     videoTimeline: "Video timeline", videoSpeed: "Playback speed", muteVideo: "Mute video", unmuteVideo: "Unmute video",

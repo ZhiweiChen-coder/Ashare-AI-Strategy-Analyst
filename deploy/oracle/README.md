@@ -159,6 +159,7 @@ Then update the existing checkout and environment:
 git fetch origin
 git checkout <reviewed-release-commit>
 ./.venv/bin/python -m pip install -r requirements_api.txt
+./.venv/bin/python -m pip install pytest
 ./.venv/bin/python -m pytest tests/test_api_app.py tests/test_research_availability.py -q
 chmod +x scripts/run_api_prod.sh
 ```
@@ -188,6 +189,16 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://api.openashare.com/openapi.jso
 ```
 
 On the protected frontend staging build, sign in and verify a Deep request returns 503 before any credit reservation or model request, while one explicitly bounded Quick research request streams and saves normally. Do not place an access token in shell history or in documentation. Verify English/Chinese notices, watchlist persistence and cancellation. Restore the previous code and service configuration if checks fail, preserving runtime credentials and persistent data.
+
+### Verify the data-provider environment
+
+The current agent requires a verified US-company identity before retrieving its quote. `SEC_USER_AGENT` must contain the identifying application/contact header; a missing header makes an exact ticker such as NVDA unverified, even when Yahoo price data is available. Do not resolve this by weakening the identity check or asking users to repeat an already-clear ticker.
+
+Keep the identifying header and data-provider keys in the actual backend runtime `.env`. Variables configured on Vercel are not automatically available to Oracle. `FINNHUB_API_KEY` enables the optional company-news and quote fallback; Yahoo can still supply historical/delayed prices without it. `LLM_MODEL` belongs in the server environment and should match the reviewed release, currently `deepseek-flash`. Saved connection credentials can remain in the existing private settings store; verify their presence without printing their values.
+
+After changing environment values, restart the backend and check the **running process**, not only the file. Validate an exact ticker with the SEC adapter, then retrieve its analysis with `include_ai=false`. Record the provider, underlying market-data date and retrieval time separately. Only after these data-only checks pass should an explicitly bounded agent smoke test be admitted. A healthy `/healthz` response does not prove SEC identity or provider configuration is complete.
+
+Some existing installations are uploaded release snapshots rather than Git checkouts. If `git rev-parse HEAD` reports no repository, compare SHA-256 hashes of the reviewed source files and use the existing snapshot upload procedure; do not initialize/reset Git or overwrite persistent `data/` and `.env` just to satisfy the Git-based example above.
 
 ### Deep research during the public beta
 

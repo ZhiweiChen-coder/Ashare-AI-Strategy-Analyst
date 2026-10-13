@@ -2,21 +2,26 @@
 
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { landingCopy, type LandingLanguage } from "@/lib/landing-copy";
-import { illustrativeSpine, illustrativeStudies, studyX, studyY, type IllustrativeCandle } from "@/lib/illustrative-market";
+import { illustrativeSpine, illustrativeStudies, ribbonFold, ribbonHalfWidth, studyX, studyY, type IllustrativeCandle } from "@/lib/illustrative-market";
 import styles from "@/app/landing.module.css";
 
 function StaticStudy({ candles, mobile, id }: { candles: IllustrativeCandle[]; mobile?: boolean; id: string }) {
   const points = Array.from({ length: 181 }, (_, i) => {
-    const u = i / 180, y = illustrativeSpine(u), width = .07 + .19 * Math.sin(u * Math.PI);
-    return { x: studyX(u), y: studyY(y), top: studyY(y + width * Math.cos(u * 7.4)), bottom: studyY(y - width * Math.cos(u * 7.4)) };
+    const u = i / 180, y = illustrativeSpine(u), width = ribbonHalfWidth(u) * Math.cos(ribbonFold(u));
+    return { x: studyX(u), y: studyY(y), top: studyY(y + width), bottom: studyY(y - width) };
   });
   const path = (key: "y" | "top" | "bottom") => points.map((point, i) => `${i ? "L" : "M"}${point.x.toFixed(2)} ${point[key].toFixed(2)}`).join(" ");
   const band = `${path("top")} ${[...points].reverse().map(point => `L${point.x.toFixed(2)} ${point.bottom.toFixed(2)}`).join(" ")} Z`;
   const bodyWidth = 1228 / (candles.length - 1) * .43;
   return <svg className={`${styles.ribbonFallback} ${mobile ? styles.signalMobile : styles.signalDesktop}`} viewBox="0 0 1300 300" preserveAspectRatio="none" aria-hidden="true">
-    <defs><linearGradient id={id}><stop stopColor="#668f83" stopOpacity=".28"/><stop offset=".48" stopColor="#bed2c5" stopOpacity=".48"/><stop offset=".8" stopColor="#c07a62" stopOpacity=".25"/><stop offset="1" stopColor="#a7c8bb" stopOpacity=".3"/></linearGradient></defs>
+    <defs>
+      <linearGradient id={id}><stop stopColor="#668f83" stopOpacity=".16"/><stop offset=".4" stopColor="#bed2c5" stopOpacity=".38"/><stop offset=".72" stopColor="#c07a62" stopOpacity=".22"/><stop offset="1" stopColor="#a7c8bb" stopOpacity=".2"/></linearGradient>
+      <filter id={`${id}-halo`} x="-10%" y="-50%" width="120%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+    </defs>
+    <path d={path("y")} fill="none" stroke={`url(#${id})`} strokeWidth="28" filter={`url(#${id}-halo)`}/>
     <path d={band} fill={`url(#${id})`}/>
-    <path d={path("y")} fill="none" stroke="#4e776a" strokeWidth="1.5" strokeLinecap="round" opacity=".5"/>
+    <path d={path("top")} fill="none" stroke="#779f91" strokeWidth=".65" opacity=".3"/>
+    <path d={path("y")} fill="none" stroke="#4e776a" strokeWidth="1" strokeLinecap="round" opacity=".45"/>
     {candles.map((bar, i) => <g key={i} className={styles.signalCandle} style={{ "--candle-delay": `${i / candles.length * .8}s`, "--candle-opacity": (.5 + .42 * Math.sin(Math.PI * bar.u) ** .3).toFixed(4) } as CSSProperties} fill={bar.close >= bar.open ? "#527e70" : "#bd674e"} stroke={bar.close >= bar.open ? "#527e70" : "#bd674e"}>
       <line x1={studyX(bar.u)} x2={studyX(bar.u)} y1={studyY(bar.high)} y2={studyY(bar.low)} strokeWidth="1.35"/>
       <rect x={studyX(bar.u) - bodyWidth / 2} y={studyY(Math.max(bar.open, bar.close))} width={bodyWidth} height={Math.max(2.2, Math.abs(studyY(bar.open) - studyY(bar.close)))} rx=".4" stroke="none"/>
@@ -56,7 +61,7 @@ export function SignalRibbon({ language }: { language: LandingLanguage }) {
       const camera = new THREE.OrthographicCamera(-5.9, 5.9, 1.7, -1.7, .1, 100);
       camera.position.set(0, 0, 10);
       const xWorld = (u: number) => studyX(u) / 1300 * 11.8 - 5.9;
-      const segments = 180, across = 6;
+      const segments = 180, across = 8;
       const positions = new Float32Array((segments + 1) * (across + 1) * 3);
       const uvs = new Float32Array((segments + 1) * (across + 1) * 2);
       const indices: number[] = [];
@@ -77,19 +82,41 @@ export function SignalRibbon({ language }: { language: LandingLanguage }) {
           void main() {
             vec3 teal = vec3(.31,.49,.42), clay = vec3(.73,.39,.28), paper = vec3(.984,.976,.957);
             float facing = abs(dot(normalize(vNormal), normalize(vec3(.1,.7,1.0))));
-            float light = pow(.5+.5*sin(vUv.x*8.0-uTime*.4+vUv.y),8.0);
-            vec3 pigment = mix(teal,clay,smoothstep(.3,.95,vUv.x+.12*sin(vUv.x*6.0-uTime*.25)));
-            vec3 color = mix(pigment,paper,.18+facing*.16+light*.14);
-            float edge = smoothstep(0.0,.12,vUv.y)*smoothstep(0.0,.12,1.0-vUv.y);
-            gl_FragColor = vec4(color,(.38+.12*(1.0-facing)+light*.04)*edge);
+            float head = fract(uTime*.035+.1);
+            float light = exp(-pow((vUv.x-head)/.075,2.0));
+            float warmth = .65*exp(-pow((vUv.x-.72)/.2,2.0));
+            vec3 pigment = mix(teal,clay,warmth);
+            vec3 color = mix(pigment,paper,.36+facing*.12+vUv.y*.12+light*.16);
+            float edge = smoothstep(0.0,.06,vUv.y)*smoothstep(0.0,.06,1.0-vUv.y);
+            gl_FragColor = vec4(color,(.24+.10*(1.0-facing)+light*.08)*edge);
           }`,
       });
-      scene.add(new THREE.Mesh(geometry, material));
+      const ribbon = new THREE.Mesh(geometry, material);
+      ribbon.frustumCulled = false; ribbon.renderOrder = 1; scene.add(ribbon);
       const positionAttribute = geometry.getAttribute("position") as InstanceType<typeof THREE.BufferAttribute>;
+      // The halo follows the curve, so illumination stays attached to the silk.
+      const haloGeometry = geometry.clone();
+      const haloPositions = haloGeometry.getAttribute("position") as InstanceType<typeof THREE.BufferAttribute>;
+      const haloMaterial = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
+        uniforms: material.uniforms,
+        vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+        fragmentShader: `uniform float uTime; varying vec2 vUv;
+          void main() {
+            float warmth = .65*exp(-pow((vUv.x-.72)/.2,2.0));
+            vec3 color = mix(vec3(.31,.49,.42),vec3(.73,.39,.28),warmth);
+            float light = exp(-pow((vUv.x-fract(uTime*.035+.1))/.12,2.0));
+            float soft = exp(-pow((vUv.y-.5)*4.6,2.0));
+            float ends = smoothstep(0.0,.12,vUv.x)*smoothstep(0.0,.12,1.0-vUv.x);
+            gl_FragColor = vec4(color,soft*ends*(.045+light*.04));
+          }`,
+      });
+      const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+      halo.frustumCulled = false; halo.renderOrder = 0; scene.add(halo);
       const spineGeometry = new THREE.BufferGeometry();
       spineGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array((segments + 1) * 3), 3));
       const spinePositionAttribute = spineGeometry.getAttribute("position") as InstanceType<typeof THREE.BufferAttribute>;
-      const spineMaterial = new THREE.LineBasicMaterial({ color: 0x4e776a, transparent: true, opacity: .58, depthTest: false });
+      const spineMaterial = new THREE.LineBasicMaterial({ color: 0x4e776a, transparent: true, opacity: .44, depthTest: false });
       const spine = new THREE.Line(spineGeometry, spineMaterial);
       spine.frustumCulled = false; spine.renderOrder = 1.5; scene.add(spine);
       const uniforms = { uReveal: { value: 0 }, uTime: { value: 0 } };
@@ -121,20 +148,22 @@ export function SignalRibbon({ language }: { language: LandingLanguage }) {
       const transform = new THREE.Object3D();
       let lane = lanes[0], elapsed = 0, scroll = 0, targetScroll = 0, frame = 0, lastTick = 0, intersecting = true, lost = false;
       const displacement = (u: number) => media.matches ? 0
-        : .048 * Math.sin(u * 9.4 - elapsed * .72)
-          + .014 * Math.sin(u * 16.2 + elapsed * .42)
-          - scroll * .045 * u * u;
+        : (.022 * Math.sin(u * 5.4 - elapsed * .36)
+          + .008 * Math.sin(u * 9.2 + elapsed * .24)) * Math.sin(u * Math.PI)
+          - scroll * .03 * u * u;
       const draw = () => {
         for (let i = 0; i <= segments; i++) {
           const u = i / segments, center = illustrativeSpine(u) + displacement(u);
-          const twist = u * 7.4 + elapsed * .055, width = .07 + .19 * Math.sin(u * Math.PI);
+          const twist = ribbonFold(u) + .08 * Math.sin(u * 4.2 - elapsed * .18), width = ribbonHalfWidth(u);
           for (let j = 0; j <= across; j++) {
             const side = j / across * 2 - 1;
             positionAttribute.setXYZ(i * (across + 1) + j, xWorld(u), center + side * width * Math.cos(twist), side * width * Math.sin(twist));
+            haloPositions.setXYZ(i * (across + 1) + j, xWorld(u), center + side * width * 4.2, -.1);
           }
           spinePositionAttribute.setXYZ(i, xWorld(u), center, .52);
         }
         positionAttribute.needsUpdate = true; geometry.computeVertexNormals();
+        haloPositions.needsUpdate = true;
         spinePositionAttribute.needsUpdate = true;
         material.uniforms.uTime.value = elapsed;
         uniforms.uReveal.value = media.matches || pausedRef.current ? 1 : Math.min(1, elapsed / 1.2);
@@ -185,7 +214,7 @@ export function SignalRibbon({ language }: { language: LandingLanguage }) {
         cancelAnimationFrame(frame); sizing.disconnect(); visibility.disconnect();
         document.removeEventListener("visibilitychange", sync); window.removeEventListener("scroll", measureScroll);
         renderer.domElement.removeEventListener("webglcontextlost", contextLost);
-        geometry.dispose(); spineGeometry.dispose(); material.dispose(); spineMaterial.dispose(); candleMaterial.dispose(); wickMaterial.dispose();
+        geometry.dispose(); haloGeometry.dispose(); haloMaterial.dispose(); spineGeometry.dispose(); material.dispose(); spineMaterial.dispose(); candleMaterial.dispose(); wickMaterial.dispose();
         lanes.forEach(item => { item.bodyGeometry.dispose(); item.wickGeometry.dispose(); });
         renderer.dispose(); renderer.domElement.remove(); sceneRef.current = null; delete host.dataset.renderer; delete host.dataset.motion;
       };

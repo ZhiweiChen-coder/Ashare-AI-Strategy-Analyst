@@ -57,9 +57,8 @@
 .signalCandle { opacity: var(--candle-opacity); animation: signal-candle-reveal .5s ease-out both; animation-delay: var(--candle-delay); transform-box: fill-box; transform-origin: center; }
 @keyframes signal-candle-reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: var(--candle-opacity); transform: translateY(0); } }
 .ribbonArt[data-renderer=webgl] .ribbonFallback { opacity: 0; }
-.ribbonGlow { position: absolute; inset: 6% 7% 1%; opacity: .66; filter: blur(28px); background: radial-gradient(ellipse at 26% 70%, rgba(15,138,123,.10), transparent 44%), radial-gradient(ellipse at 66% 42%, rgba(190,91,54,.13), transparent 42%), radial-gradient(ellipse at 86% 24%, rgba(15,138,123,.09), transparent 32%); animation: ribbon-halo-drift 16s ease-in-out infinite alternate; }
-.ribbonGlow::after { content: ""; position: absolute; inset: 26% 19%; background: radial-gradient(ellipse at center, rgba(160,196,179,.1), transparent 68%); filter: blur(20px); }
-@keyframes ribbon-halo-drift { from { transform: translate(-1.5%, -4%) scale(.97); opacity: .62; } to { transform: translate(1.5%, 3%) scale(1.04); opacity: .88; } }
+.ribbonGlow { position: absolute; inset: 13% 8% 7%; opacity: .4; filter: blur(32px); background: radial-gradient(ellipse at 28% 72%, rgba(15,138,123,.07), transparent 42%), radial-gradient(ellipse at 73% 32%, rgba(190,91,54,.08), transparent 36%); animation: ribbon-halo-drift 20s ease-in-out infinite alternate; }
+@keyframes ribbon-halo-drift { from { transform: translate(-1%, -2%) scale(.98); opacity: .34; } to { transform: translate(1%, 2%) scale(1.02); opacity: .48; } }
 .ribbonArt:not([data-motion=running]) .ribbonGlow { animation-play-state: paused; }
 .ribbonArt:not([data-motion=running]) .signalCandle { animation-play-state: paused; }
 .ribbonArt[data-motion=fallback] .signalCandle { animation: none; }
@@ -70,7 +69,7 @@
 .motionButton:disabled { cursor: default; opacity: .75; }
 .experienceSection { padding-bottom: 8px; scroll-margin-top: 28px; }
 .experienceSummary { padding: 52px 0 0; scroll-margin-top: 32px; }
-.experienceSummary h2 { font-size: clamp(26px,2.8vw,36px); line-height: 1.25; font-weight: 500; letter-spacing: -.04em; }
+.experienceSummary h2 { font-size: 11px; line-height: 1.5; font-weight: 650; letter-spacing: .13em; }
 .workflowShowcase { margin-top: 28px; scroll-margin-top: 100px; }
 .workflowDemo { max-width: 1120px; margin: 0 auto 22px; }
 .workflowDemoVideo { display: block; width: 100%; aspect-ratio: 3420 / 1904; object-fit: contain; background: #fbfaf7; }
@@ -252,7 +251,7 @@
   .hero { padding-top: 52px; }
   .ribbonArt { height: 230px; }
   .ribbonScene { margin-top: 15px; }
-  .ribbonGlow { inset: 11% -15% 0; filter: blur(28px); }
+  .ribbonGlow { inset: 14% 0 6%; filter: blur(24px); }
   .ribbonTools { display: grid; grid-template-columns: 1fr auto; gap: 0 12px; margin-top: 0; }
   .ribbonScroll { grid-column: 1; grid-row: 2; }
   .motionButton { grid-column: 2; grid-row: 2; }

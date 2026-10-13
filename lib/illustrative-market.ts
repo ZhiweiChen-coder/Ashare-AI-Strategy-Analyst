@@ -2,9 +2,7 @@
 export type IllustrativeCandle = { u: number; open: number; close: number; high: number; low: number };
 
 const trend = [
-  -.94, -.86, -.91, -.80, -.84, -.78, -.82, -.72, -.75, -.62, -.57, -.62,
-  -.43, -.34, -.40, -.20, -.12, -.19, -.03, .08, .04, .22, .38, .46,
-  .38, .24, .31, .23, .43, .58, .66, .61, .75, .92, .87, 1.04,
+  -.98, -.85, -.88, -.60, -.37, -.45, -.04, .34, .19, .52, .76, 1.02,
 ];
 
 export function illustrativeSpine(u: number) {
@@ -31,3 +29,7 @@ function createStudy(count: number): IllustrativeCandle[] {
 export const illustrativeStudies = { desktop: createStudy(121), mobile: createStudy(43) };
 export const studyX = (u: number) => 36 + u * 1228;
 export const studyY = (y: number) => 150 - y * (300 / 3.4);
+
+/** A single shallow fold keeps the ribbon continuous at every point. */
+export const ribbonHalfWidth = (u: number) => .026 + .105 * Math.sin(Math.PI * u) ** .8;
+export const ribbonFold = (u: number) => -.5 + u * 1.15;

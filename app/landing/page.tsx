@@ -43,7 +43,7 @@ export default async function LandingPage({ searchParams }: Props) {
         </section>
         <section className={`${styles.experienceSection} ${styles.wrap}`} id="experience" aria-labelledby="experience-title">
           <div className={styles.experienceSummary}>
-            <h2 id="experience-title">{copy.experienceTitle}</h2>
+            <h2 className={styles.sectionLabel} id="experience-title">{copy.experienceTitle}</h2>
           </div>
           <LandingWorkflows language={language}/>
         </section>
