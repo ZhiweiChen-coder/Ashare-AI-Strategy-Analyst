@@ -1,12 +1,14 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
 
 export default function AppLoading() {
   const { locale } = useLanguage();
+  const pathname = usePathname();
   const requested = useSearchParams().get("lang");
   const english = requested === "en" || (requested !== "zh" && locale === "en");
+  if (pathname === "/" || pathname === "/landing") return null;
   return (
     <>
       <section className="panel section loading-hero">

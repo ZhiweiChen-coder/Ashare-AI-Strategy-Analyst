@@ -47,9 +47,7 @@ export function LandingWorkflows({ language }: { language: LandingLanguage }) {
         tabIndex={active === index ? 0 : -1}
         onClick={() => selectDemo(index)}
       >
-        <span className={styles.workflowTabNumber}>0{index + 1}</span>
         <span>{workflow.label}</span>
-        <span className={styles.workflowTabArrow} aria-hidden="true">↗</span>
       </button>)}
     </div>
     <div className={styles.workflowContent} role="tabpanel" id={panelId} aria-labelledby={`${id}-tab-${active}`} tabIndex={0}>
@@ -57,7 +55,7 @@ export function LandingWorkflows({ language }: { language: LandingLanguage }) {
         <LandingDemoPlayer key={media.src} media={media} label={item.label} language={language} />
       </figure>
       <div className={styles.workflowCopy}>
-        <div><span className={styles.workflowPreviewLabel}>{item.preview}</span><h3>{item.title}</h3></div>
+        <div><h3>{item.title}</h3></div>
         <p>{item.description}</p>
       </div>
     </div>

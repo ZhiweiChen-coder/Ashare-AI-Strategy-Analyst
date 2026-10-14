@@ -1,4 +1,4 @@
-/* Signal V3 composition, using the research workspace palette and typography. */
+/* Shared marketing shell, navigation, journal and recorded-demo styles. */
 .page {
   --paper: #fbfaf6;
   --paper-deep: #ece7df;
@@ -49,7 +49,10 @@
 .textButton:hover { color: var(--teal); }
 .ribbonScene { width: min(100vw, 1740px); position: relative; margin: 28px 0 0; }
 .ribbonVisual { position: relative; }
-.ribbonArt { position: relative; height: 280px; isolation: isolate; pointer-events: none; }
+.ribbonArt { position: relative; height: 280px; isolation: isolate; pointer-events: none; animation: ribbon-unfold 4.2s cubic-bezier(.25,.1,.25,1) .15s both; }
+@keyframes ribbon-unfold { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.ribbonArt:not([data-motion=running]) { animation-play-state: paused; }
+.ribbonArt[data-motion=fallback] { animation: none; }
 .ribbonArt canvas, .ribbonFallback { position: absolute; inset: 0; width: 100%; height: 100%; display: block; mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent); }
 .ribbonArt canvas { z-index: 2; }
 .ribbonFallback { z-index: 1; transition: opacity .5s; }
@@ -72,7 +75,7 @@
 .experienceSummary h2 { font-size: 11px; line-height: 1.5; font-weight: 650; letter-spacing: .13em; }
 .workflowShowcase { margin-top: 28px; scroll-margin-top: 100px; }
 .workflowDemo { max-width: 1120px; margin: 0 auto 22px; }
-.workflowDemoVideo { display: block; width: 100%; aspect-ratio: 3420 / 1904; object-fit: contain; background: #fbfaf7; }
+.workflowDemoVideo { display: block; width: 100%; height: auto; aspect-ratio: 3420 / 1904; object-fit: contain; background: #fbfaf7; }
 .workflowMediaError { margin: 12px 0 0 !important; color: var(--muted); font-size: 12px; }
 .workflowMediaError a { color: var(--teal-dark); text-decoration: underline; }
 .demoPlayer { position: relative; overflow: hidden; border-radius: 4px; background: #101713; isolation: isolate; }
@@ -318,3 +321,8 @@
   .ribbonArt[data-renderer=webgl] .ribbonFallback { opacity: 1; }
   .page *, .page *::before, .page *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Workflow tabs name independent use cases, not numbered steps. */
+.workflowTab { display: flex; align-items: center; justify-content: flex-start; min-height: 64px; }
+.workflowTab > span { font-size: 14px; }
+@media (max-width: 600px) { .workflowTab { min-height: 66px; padding: 12px 9px; } .workflowTab > span { font-size: 11px; line-height: 1.4; } }

@@ -68,7 +68,7 @@ export function landingStructuredData(language: SiteLanguage, description: strin
         inLanguage: ["en", "zh-CN"], publisher: { "@id": `${origin}/#organization` },
       },
       {
-        "@type": "WebApplication", "@id": `${origin}/#application`, name: "OpenAshare",
+        "@type": "SoftwareApplication", "@id": `${origin}/#application`, name: "OpenAshare",
         applicationCategory: "FinanceApplication", operatingSystem: "Web",
         url: localizedUrl("/landing", language), description,
         inLanguage: language === "zh" ? "zh-CN" : "en",

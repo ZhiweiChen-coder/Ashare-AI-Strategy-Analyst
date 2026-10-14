@@ -166,7 +166,7 @@ export function SignalRibbon({ language }: { language: LandingLanguage }) {
         haloPositions.needsUpdate = true;
         spinePositionAttribute.needsUpdate = true;
         material.uniforms.uTime.value = elapsed;
-        uniforms.uReveal.value = media.matches || pausedRef.current ? 1 : Math.min(1, elapsed / 1.2);
+        uniforms.uReveal.value = 1; // The shared CSS reveal unfolds every layer together.
         uniforms.uTime.value = elapsed;
         const wickPositions = lane.wickGeometry.getAttribute("position") as InstanceType<typeof THREE.BufferAttribute>;
         lane.candles.forEach((bar, i) => {

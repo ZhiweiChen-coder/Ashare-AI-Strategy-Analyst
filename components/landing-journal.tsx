@@ -7,7 +7,7 @@ export function LandingJournal({ language }: { language: LandingLanguage }) {
 
   return (
     <div className={styles.journalGrid}>
-      {copy.articles.map((item, index) => (
+      {copy.articles.map((item) => (
         <Link
           key={item.slug || item.title}
           href={`/journal/${item.slug}?lang=${language}`}
@@ -17,12 +17,11 @@ export function LandingJournal({ language }: { language: LandingLanguage }) {
             <span>{item.concept || copy.concept}</span>
             <span className={styles.journalMetaDivider} aria-hidden="true">·</span>
             <span>{item.category}</span>
-            <span className={styles.journalNumber} aria-hidden="true">0{index + 1}</span>
           </div>
           <h3>{item.title}</h3>
           <span className={styles.journalLink}>
             {copy.explore}
-            <span aria-hidden="true">↗</span>
+            <span aria-hidden="true">→</span>
           </span>
         </Link>
       ))}
