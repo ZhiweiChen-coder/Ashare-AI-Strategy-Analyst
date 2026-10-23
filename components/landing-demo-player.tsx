@@ -155,8 +155,8 @@ export function LandingDemoPlayer({ media, label, language }: { media: DemoMedia
         muted
         playsInline
         preload="none"
-        width={3420}
-        height={1904}
+        width={1920}
+        height={1080}
         aria-label={label}
         onLoadedMetadata={event => { const value = event.currentTarget.duration; if (Number.isFinite(value)) setDuration(value); }}
         onTimeUpdate={event => setElapsed(event.currentTarget.currentTime)}

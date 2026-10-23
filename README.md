@@ -18,18 +18,16 @@ OpenAshare helps you follow a company, review the available evidence, and ask fo
 
 ## See it in action
 
-- [Research company news](public/marketing/demo-stock-questions.mp4)
-- [Ask about a selected chart period](public/marketing/demo-chart-research.mp4)
-- [Follow a research question in depth](public/marketing/demo-deep-research.mp4)
+[![Watch the 30-second OpenAshare product demo](public/marketing/openashare-30s-product.jpg)](public/marketing/openashare-30s-product.mp4)
 
 ## Screenshots
 
 <p align="center">
-  <a href="public/marketing/demo-chart-research.mp4"><img src="public/marketing/demo-chart-research.jpg" alt="Researching a selected stock-chart period with market context" width="47%" /></a>
-  <a href="public/marketing/demo-deep-research.mp4"><img src="public/marketing/demo-deep-research.jpg" alt="A cited deep-research answer alongside the stock chart" width="47%" /></a>
+  <a href="public/marketing/openashare-30s-product.mp4"><img src="public/marketing/demo-chart-research.jpg" alt="Researching a selected stock-chart period with market context" width="47%" /></a>
+  <a href="public/marketing/openashare-30s-product.mp4"><img src="public/marketing/demo-deep-research.jpg" alt="A cited deep-research answer alongside the stock chart" width="47%" /></a>
 </p>
 
-<p align="center"><sub>Select a screenshot to watch its demo.</sub></p>
+<p align="center"><sub>Select a screenshot to watch the product demo.</sub></p>
 
 ## What you can do
 

@@ -72,9 +72,7 @@
 
 ## 产品一览
 
-| 个股新闻研究 | 区间图表研究 | 深度研究 |
-| --- | --- | --- |
-| [![新闻研究演示](public/marketing/demo-stock-questions.jpg)](public/marketing/demo-stock-questions.mp4) | [![图表研究演示](public/marketing/demo-chart-research.jpg)](public/marketing/demo-chart-research.mp4) | [![深度研究演示](public/marketing/demo-deep-research.jpg)](public/marketing/demo-deep-research.mp4) |
+[![观看 30 秒 OpenAshare 产品演示](public/marketing/openashare-30s-product.jpg)](public/marketing/openashare-30s-product.mp4)
 
 ### 研究工作台与 Agent
 

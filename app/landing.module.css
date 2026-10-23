@@ -75,7 +75,7 @@
 .experienceSummary h2 { font-size: 11px; line-height: 1.5; font-weight: 650; letter-spacing: .13em; }
 .workflowShowcase { margin-top: 28px; scroll-margin-top: 100px; }
 .workflowDemo { max-width: 1120px; margin: 0 auto 22px; }
-.workflowDemoVideo { display: block; width: 100%; height: auto; aspect-ratio: 3420 / 1904; object-fit: contain; background: #fbfaf7; }
+.workflowDemoVideo { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: contain; background: #fbfaf7; }
 .workflowMediaError { margin: 12px 0 0 !important; color: var(--muted); font-size: 12px; }
 .workflowMediaError a { color: var(--teal-dark); text-decoration: underline; }
 .demoPlayer { position: relative; overflow: hidden; border-radius: 4px; background: #101713; isolation: isolate; }
